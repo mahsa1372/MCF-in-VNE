@@ -13,14 +13,19 @@ import scala.collection.immutable.ListMap
  
 object VneApp {
 
-	def vertexMappingRandom(sgraph: Graph[(String,Int), (Int, Int)], vgraph: Graph[(String,Int), Int]) :Map[Int, Int] = {
-		val rnd = new scala.util.Random //random function     
-		var svertexMap = new ListBuffer[Int]()
-			do {
-				svertexMap += 1+rnd.nextInt(sgraph.vertices.collect.size)
-				svertexMap = svertexMap.distinct
-			} while (svertexMap.size < vgraph.vertices.collect.size)
-		(List.range(1, vgraph.vertices.collect.size+1) zip svertexMap.toList) toMap
+	def vertexMappingRandom(sArray: Array[(Long, Int)], vArray: Array[(Long, Int)]) :Map[Int, Int] = {
+                val rnd = new scala.util.Random //random function
+                var svertexMap = new ListBuffer[Int]()
+			for (y <- 0 to vArray.size-1 ) {
+				do {
+					var x = rnd.nextInt(sArray.size)
+					if (vArray(y)._2 <= sArray(x)._2) {
+						svertexMap += 1+x
+						svertexMap = svertexMap.distinct 
+					}
+				} while (svertexMap.size <= y)
+			}
+                (List.range(1, vArray.size+1) zip svertexMap.toList) toMap
 	}
 
 	def main(args: Array[String]): Unit = {
@@ -30,18 +35,18 @@ object VneApp {
 		//sc.setLogLevel("ERROR") // ALL,DEBUG,ERROR,FATAL,TRACE,WARN,INFO,OFF
 
 		// SUBSTRATE NETWORK:
-		val svertexArray = Array( (1L, ("virtlab1",4)), (2L, ("virtlab2", 4)), (3L, ("virtlab3",4)), (4L, ("virtlab4",4)), (5L, ("virtlab5",4)) )
-		val svertexRDD: RDD[(Long, (String, Int))] = sc.parallelize(svertexArray)
+		val svertexArray = Array( (1L, 3), (2L, 3), (3L, 4), (4L, 4), (5L, 5) )
+		val svertexRDD: RDD[(Long, Int)] = sc.parallelize(svertexArray)
 		val sedgeArray = Array(Edge(1L,2L,(1,1000)), Edge(1L,5L,(1,1000)), Edge(2L,3L,(1,1000)), Edge(2L,5L,(1,1000)), Edge(3L,4L,(1,1000)), Edge(4L,5L,(1,1000)))
 		val sedgeRDD: RDD[Edge[(Int,Int)]] = sc.parallelize(sedgeArray)
-		val gs: Graph[(String,Int), (Int, Int)] = Graph(svertexRDD, sedgeRDD)
+		val gs: Graph[Int, (Int, Int)] = Graph(svertexRDD, sedgeRDD)
 
 		// VIRTUAL NETWORK:
-		val vvertexArray = Array( (1L, ("A",4)), (2L, ("B", 4)), (3L, ("C",4)))
-		val vvertexRDD: RDD[(Long, (String, Int))] = sc.parallelize(vvertexArray)
+		val vvertexArray = Array( (1L, 5), (2L, 4), (3L, 4))
+		val vvertexRDD: RDD[(VertexId, Int)] = sc.parallelize(vvertexArray)
 		val vedgeArray = Array(Edge(1L,2L,(100)), Edge(1L,3L,(80)), Edge(2L,3L,(40)))
 		val vedgeRDD: RDD[Edge[Int]] = sc.parallelize(vedgeArray)
-		val gv: Graph[(String,Int), Int] = Graph(vvertexRDD, vedgeRDD)
+		val gv: Graph[Int, Int] = Graph(vvertexRDD, vedgeRDD)
 
 		gs.vertices.collect.foreach(println(_))
 		gs.edges.collect.foreach(println(_))
@@ -49,11 +54,12 @@ object VneApp {
 		gv.edges.collect.foreach(println(_))
 
 		// RANDOM MAPPING:
-		val nodeMapping = vertexMappingRandom(gs, gv)
+		val nodeMapping = vertexMappingRandom(svertexArray, vvertexArray)
 		println(s"Elements of nodeMapping = $nodeMapping")
 
 		// UPDATE CAPACITY:
 
+		svertexArray(1)._2 //Tuples
 		//https://spark.apache.org/docs/latest/graphx-programming-guide.html
 
 		// TEST MORE VNs:
