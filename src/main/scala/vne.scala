@@ -59,7 +59,7 @@ object VneApp {
 
 		// UPDATE CAPACITY:
 
-		svertexArray(1)._2 //Tuples
+		//svertexArray(1)._2 //Tuples
 		//https://spark.apache.org/docs/latest/graphx-programming-guide.html
 
 		// TEST MORE VNs:
