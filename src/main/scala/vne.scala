@@ -6,7 +6,7 @@ import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
-import org.apache.spark.graphx.lib.MyShortestPaths
+//import org.apache.spark.graphx.lib.MyShortestPaths
 import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.ListMap
@@ -26,6 +26,12 @@ object VneApp {
 				} while (svertexMap.size <= y)
 			}
                 (List.range(1, vArray.size+1) zip svertexMap.toList) toMap
+	}
+
+	def updateCapacity(sArray: Array[(Long, Int)], vArray: Array[(Long, Int)], nmapping: Map[Int, Int]) :Unit = {
+		for (x <- 1 to vArray.size) {
+			sArray(nmapping(x)-1) = (nmapping(x).toLong, (sArray((nmapping(x))-1)._2)-(vArray(x-1)._2))
+		}
 	}
 
 	def main(args: Array[String]): Unit = {
@@ -58,9 +64,8 @@ object VneApp {
 		println(s"Elements of nodeMapping = $nodeMapping")
 
 		// UPDATE CAPACITY:
-
-		svertexArray(1)._2 //Tuples
-		//https://spark.apache.org/docs/latest/graphx-programming-guide.html
+		updateCapacity(svertexArray, vvertexArray, nodeMapping)
+		svertexArray
 
 		// TEST MORE VNs:
 
