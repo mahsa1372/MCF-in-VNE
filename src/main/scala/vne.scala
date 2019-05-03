@@ -64,8 +64,14 @@ object VneApp {
 		println(s"Elements of nodeMapping = $nodeMapping")
 
 		// UPDATE CAPACITY:
+<<<<<<< HEAD
 		updateCapacity(svertexArray, vvertexArray, nodeMapping)
 		svertexArray
+=======
+
+		//svertexArray(1)._2 //Tuples
+		//https://spark.apache.org/docs/latest/graphx-programming-guide.html
+>>>>>>> f4ad1baa6622df8db58f0eaf5070dcac8d823e00
 
 		// TEST MORE VNs:
 
