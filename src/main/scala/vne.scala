@@ -2,6 +2,8 @@
 
 package org.ikt.spark.graphx.graphxvne
 
+import org.ikt.spark.graphx.graphxvne.vertexMapping._
+import org.ikt.spark.graphx.graphxvne.dijkstra.Dijkstra
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
@@ -14,48 +16,6 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.ListMap
  
 object VneApp {
-
-	def vertexMappingGreedy(sArray: Array[(Long, (String, Int))], vArray: Array[(Long, (String, Int))]) :Map[Int, Int] = {
-		var ssorted = sArray.sortBy(x => (-x._2._2, x._1))
-		var vsorted = vArray.sortBy(x => (-x._2._2, x._1))
-		var svertexMap = new ListBuffer[Int]()
-		var vvertexMap = new ListBuffer[Int]()
-			for (y <- 1 to vsorted.size ) {
-				if (vsorted(y-1)._2._2 <= ssorted(y-1)._2._2) { 
-					svertexMap += ssorted(y-1)._1.toInt 
-					vvertexMap += y
-				}
-				else {
-					svertexMap += 0
-					vvertexMap += y
-				}
-			}
-		(vvertexMap.toList zip svertexMap.toList) toMap
-	}
-
-	def updateCapacity(sArray: Array[(Long, (String, Int))], vArray: Array[(Long, (String, Int))], nmapping: Map[Int, Int]) :Unit = {
-		for (x <- 1 to vArray.size) {
-			if ((sArray(nmapping(x)-1)._2._2)-(vArray(x-1)._2._2) < 0) {
-				sArray(nmapping(x)-1) = (nmapping(x).toLong, (sArray(nmapping(x)-1)._2._1,0))
-			} else {
-				sArray(nmapping(x)-1) = (nmapping(x).toLong, (sArray(nmapping(x)-1)._2._1,(sArray(nmapping(x)-1)._2._2)-(vArray(x-1)._2._2)))
-			}
-		}
-	}
-
-	type Path[Long] = (Double, List[Long])
- 
-	def Dijkstra[Long](lookup: Map[Long, List[(Double,Long)]], p: List[Path[Long]],dest: Long, visited: Set[Long]): Path[Long] = p match {
-		case (dist, path) :: p_rest => path match {case key :: path_rest =>
-			if (key == dest) (dist, path.reverse)
-			else {
-				val paths = lookup(key).flatMap {case (d, key) => if (!visited.contains(key)) List((dist + d, key :: path)) else Nil}
-				val sorted_p = (paths ++ p_rest).sortWith {case ((d1, _), (d2, _)) => d1 < d2}
-				Dijkstra(lookup, sorted_p, dest, visited + key)
-			}
-		}
-		case Nil => (0, List())
-	}
 
 	def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit) {
 		val p = new java.io.PrintWriter(f)
