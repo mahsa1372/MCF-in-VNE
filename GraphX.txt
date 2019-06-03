@@ -1,0 +1,88 @@
+GraphX:
+
+org.apache.spark.graphx:
+
+Edge.scala: A single directed edge consisting of a source id, target id, and the data associated with the edge.
+		ED: type of the edge attribute
+		srcId: The vertex id of the source vertex
+		dstId: The vertex id of the target vertex
+		attr: The attribute associated with the edge
+EdgeContext.scala: Represents an edge along with its neighboring vertices and allows sending messages along the edge.
+EdgeDirection.scala: The direction of a directed edge relative to a vertex.
+EdgeRDD.scala: Storing the edges in columnar format on each partition for performance. It may additionally store the vertex attributes associated with each edge to provide the triplet view.
+EdgeTriplet.scala: An edge triplet represents an edge along with the vertex attributes of its neighboring vertices.
+Graph.scala : A graph with arbitrary objects associated with vertices and edges.
+		VD: the vertex attribute type
+		ED: the edge attribute type
+		triplets: are edges along with the vertex data associated with the adjacent vertices.
+GraphLoader.scala: Provides utilities for loading Graphs from files. Loads a graph from an edge list formatted file where each line contains two integers: a source id and a target id. Skips lines that begin with `#`.
+GraphOps.scala: Contains additional functionality for Graph:
+    • The number of edges in the graph.
+    • The number of vertices in the graph.
+    • The in-degree of each vertex in the graph.
+    • The degree of each vertex in the graph.
+    • Computes the neighboring vertex degrees.
+    • Collect the neighbor vertex ids for each vertex.
+    • Collect the neighbor vertex attributes for each vertex.
+    • Remove self edges.
+    • Filter the graph by computing some values to filter on, and applying the predicates.
+    • Picks a random vertex from the graph and returns its ID.
+    • Convert bi-directional edges into uni-directional ones.
+    • Run a dynamic version of PageRank returning a graph with vertex attributes containing the PageRank and edge attributes containing the normalized edge weight.
+    • Compute the connected component membership of each vertex and return a graph with the vertex value containing the lowest vertex id in the connected component containing that vertex.
+    • Compute the number of triangles passing through each vertex.
+    • Compute the strongly connected component (SCC) of each vertex and return a graph with the vertex value containing the lowest vertex id in the SCC containing that vertex.
+GraphXUtils.scala: Registers classes that GraphX uses with Kryo.
+PartitionStrategy.scala: Represents the way edges are assigned to edge partitions based on their source and destination vertex IDs. Assigns edges to partitions using a 2D partitioning of the sparse edge adjacency matrix, guaranteeing a `2 * sqrt(numParts)` bound on vertex replication.
+Pregel.scala: Implements a Pregel-like bulk-synchronous message-passing API.
+TripletFields.scala:
+VertexRDD.scala: Extends `RDD[(VertexId, VD)]` by ensuring that there is only one entry for each vertex and by pre-indexing the entries for fast, efficient joins.
+
+org.apache.spark.graphx.impl:
+
+EdgeActiveness.scala:
+EdgePartitionBuilder.scala: Constructs an EdgePartition from scratch. Constructs an EdgePartition from an existing EdgePartition with the same vertex set.
+EdgePartition.scala: A collection of edges, along with referenced vertex attributes and an optional active vertex set for filtering computation on the edges. Construct a new edge partition by applying the function f to all edges in this partition.
+EdgeRDDImpl.scala: If `partitionsRDD` already has a partitioner, use it. Otherwise assume that the `PartitionID`s in `partitionsRDD` correspond to the actual partitions and create a new partitioner that allows co-partitioning with `partitionsRDD`.
+Graphlmpl.scala: An implementation of org.apache.spark.graphx.Graph to support computation on graphs. 
+    • Create a graph from edges, setting referenced vertices to `defaultVertexAttr`.
+    • Create a graph from EdgePartitions, setting referenced vertices to `defaultVertexAttr`.
+    • Create a graph from vertices and edges, setting missing vertices to `defaultVertexAttr`.
+    • Create a graph from a VertexRDD and an EdgeRDD with arbitrary replicated vertices.
+    • Create a graph from a VertexRDD and an EdgeRDD with the same replicated vertex type as the vertices.
+    • Create a graph from an EdgeRDD with the correct vertex type, setting missing vertices to `defaultVertexAttr`.
+ReplicatedVertexView.scala: Manages shipping vertex attributes to the edge partitions of an org.apache.spark.graphx.EdgeRDD.
+RoutingTablePartition.scala: A message from an edge partition to a vertex specifying the position in which the edge partition references the vertex (src, dst, or both). The edge partition is encoded in the lower 30 bits of the Int, and the position is encoded in the upper 2 bits of the Int.
+ShippableVertexPartition.scala: Stores vertex attributes to ship to an edge partition.
+VertexPartitionBaseOps.scala: A class containing additional operations for subclasses of VertexPartitionBase that provide implicit evidence of membership in the `VertexPartitionBaseOpsConstructor` typeclass.
+VertexPartitionBase.scala: Construct the constituents of a VertexPartitionBase from the given vertices, merging duplicate entries arbitrarily. An abstract map from vertex id to vertex attribute. VertexPartition is the corresponding concrete implementation.
+VertexPartition.scala: Construct a `VertexPartition` from the given vertices. A map from vertex id to vertex attribute.
+VertexRDDImpl.scala: Vertices in the RDD.
+
+org.apache.spark.graphx.lib:
+
+ConnectedComponents.scala: Compute the connected component membership of each vertex and return a graph with the vertex value containing the lowest vertex id in the connected component containing that vertex.
+LabelPropagation.scala: Run static Label Propagation for detecting communities in networks. Each node in the network is initially assigned to its own community. At every superstep, nodes send their community affiliation to all neighbors and update their state to the mode community affiliation of incoming messages. LPA is a standard community detection algorithm for graphs. It is very inexpensive computationally, although (1) convergence is not guaranteed and (2) one can end up with trivial solutions (all nodes are identified into a single community).
+PageRank.scala: The first implementation uses the standalone `Graph` interface and runs PageRank for a fixed number of iterations. The second implementation uses the `Pregel` interface and runs PageRank until convergence.
+ShortestPaths.scala: Computes shortest paths to the given set of landmark vertices, returning a graph where each vertex attribute is a map containing the shortest-path distance to each reachable landmark.
+StronglyConnectedComponents.scala: Compute the strongly connected component (SCC) of each vertex and return a graph with the vertex value containing the lowest vertex id in the SCC containing that vertex.
+SVDPlusPlus.scala: Implement SVD++ based on "Factorization Meets the Neighborhood: a Multifaceted Collaborative Filtering Model", available at <a href="http://public.research.att.com/~volinsky/netflix/kdd08koren.pdf"> here</a>. The prediction rule is rui = u + bu + bi + qi*(pu + |N(u)|^^-0.5^^*sum(y)), see the details on page 6.
+TriangleCount.scala: Compute the number of triangles passing through each vertex. The algorithm is relatively straightforward and can be computed in three steps:
+    1. Compute the set of neighbors for each vertex
+    2. For each edge compute the intersection of the sets and send the count to both vertices.
+    3. Compute the sum at each vertex and divide by two since each triangle is counted twice.
+There are two implementations.  The default `TriangleCount.run` implementation first removes self cycles and canonicalizes the graph to ensure that the following conditions hold:
+    • There are no self edges
+    • All edges are oriented (src is greater than dst)
+    • There are no duplicate edges
+However, the canonicalization procedure is costly as it requires repartitioning the graph. If the input data is already in "canonical form" with self cycles removed then the `TriangleCount.runPreCanonicalized` should be used instead.
+
+org.apache.spark.graphx.util:
+
+ByteCodeUtils.scala: Includes an utility function to test whether a function accesses a specific attribute of an object.
+GraphGenerators.scala: A collection of graph generating functions:
+    • A graph whose vertex out degree distribution is log normal.
+    • A random graph generator using the R-MAT model, proposed in "R-MAT: A Recursive Model for Graph Mining"
+    • Create `rows` by `cols` grid graph with each vertex connected to its row+1 and col+1 neighbors.
+    • Create a star graph with vertex 0 being the center.
+PeriodicGraphCheckPointer.scala: This class helps with persisting and checkpointing Graphs. Specifically, it automatically handles persisting and (optionally) checkpointing, as well as unpersisting and removing checkpoint files.
