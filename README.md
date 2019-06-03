@@ -1,4 +1,4 @@
-# Berechnung von optimierten Netzwerkpfadenmittels Cluster-Computing (Spark/GraphX)
+# Berechnung von optimierten Netzwerkpfaden mittels Cluster-Computing (Spark/GraphX)
 
 Eines der graphentheoretischen Probleme aus der Domäne der Kommunikationsnetze ist beispielsweise das Multi-commodity flow problem (MCF), bei dem optimierte Netzwerkpfade für Datenströme ermittelt werden. Dies ist integraler Bestandteil von Ressourcen-Zuordnungsalgorithmen (Resource Mapping) von Netzwerk-Infrastruktur-Betreibern bzw. ISPs. Es existieren bereits zahlreiche Resource Mapping-Algorithmen und Integer Programming-basierte Ansätze. Für letzteren Ansatz wird eine Solver genannte Software benutzt, um die optimale Lösung zu ermitteln. Optimal bezieht sich hier auf das jeweilige Ziel, z.B. minimale Ressourcennutzung. Generell ist das Lösen von Ressourcen-Zuordnungsproblemen sehr rechenintensiv.
 
