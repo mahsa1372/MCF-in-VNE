@@ -1,0 +1,10 @@
+lib/
+target/
+project/target/
+project/project/
+.idea/
+.idea_modules/
+.xml
+.sbtopts
+src/main/main.iml
+src/test/test.iml
