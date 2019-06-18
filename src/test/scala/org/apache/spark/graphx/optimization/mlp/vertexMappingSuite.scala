@@ -16,12 +16,24 @@ import scala.collection.immutable.ListMap
 
 class vertexMappingSuite extends FunSuite {
 
-//      test("vertexMapping solve is implemented properly") {
+	test("vertexMapping solve is implemented properly") {
 
-//              val result =
-//              val expectedSol =
+		val svertexArray =Array((1L, ("1", 5)),
+					(2L, ("2", 6)),
+					(3L, ("3", 8)),
+					(4L, ("4", 9)),
+					(5L, ("5", 10)) )
 
-//              assert(result ~== expectedSol, "vertexMapping should return the correct answer.")
-//      }
+		val vvertexArray = Array( (1L, ("1", 9)),
+					  (2L, ("2", 7)),
+					  (3L, ("3", 7)))
+
+
+		val result = vertexMapping.vertexMappingGreedy(svertexArray,vvertexArray)
+		val expectedSol = Map(1 -> 5, 2 -> 4, 3 -> 3)
+
+
+		assert(result == expectedSol, "vertexMapping return the correct answer.")
+	}
 }
 

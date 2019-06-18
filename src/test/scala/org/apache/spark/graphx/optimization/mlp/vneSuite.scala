@@ -24,6 +24,7 @@ class vneSuite extends FunSuite {
 		
 //		val result = 
 //		val expectedSol = 
-//		assert(result ~== expectedSol, "vne should return the correct answer.")
+
+//		assert(result == expectedSol, "vne return the correct answer.")
 //	}
 }
