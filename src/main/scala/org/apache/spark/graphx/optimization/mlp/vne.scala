@@ -73,32 +73,6 @@ object VneApp {
 		val vedgeRDD1: RDD[Edge[(Int,Int)]] = sc.parallelize(vedgeArray1)
 		val gv1: Graph[(String, Int), (Int, Int)] = Graph(vvertexRDD1, vedgeRDD1)
 
-                // VIRTUAL NETWORK2:
-                val vvertexArray2 = Array( (1L, ("1", 2)), 
-					   (2L, ("2", 2)))
-
-                val vvertexRDD2: RDD[(VertexId, (String, Int))] = sc.parallelize(vvertexArray2)
-                val vedgeArray2 = Array(Edge(1L,2L,(1,1000)), 
-					Edge(2L,1L,(1,1000)))
-
-                val vedgeRDD2: RDD[Edge[(Int, Int)]] = sc.parallelize(vedgeArray2)
-                val gv2: Graph[(String,Int), (Int, Int)] = Graph(vvertexRDD2, vedgeRDD2)
-
-                // VIRTUAL NETWORK3:
-                val vvertexArray3 = Array( (1L, ("1", 1)), 
-					   (2L, ("2", 1)), 
-					   (3L, ("3", 1)), 
-					   (4L, ("4", 1)))
-
-                val vvertexRDD3: RDD[(VertexId, (String, Int))] = sc.parallelize(vvertexArray3)
-                val vedgeArray3 = Array(Edge(1L,2L,(1,1000)), 
-					Edge(2L,3L,(1,1000)), 
-					Edge(3L,4L,(1,1000)), 
-					Edge(4L,1L,(1,1000)))
-
-                val vedgeRDD3: RDD[Edge[(Int, Int)]] = sc.parallelize(vedgeArray3)
-                val gv3: Graph[(String,Int), (Int,Int)] = Graph(vvertexRDD3, vedgeRDD3)
-
 		gs.vertices.collect.foreach(println(_))
 		gs.edges.collect.foreach(println(_))
 		gv1.vertices.collect.foreach(println(_))
@@ -111,16 +85,6 @@ object VneApp {
 		// UPDATE CAPACITY:
 		updateCapacity(svertexArray, vvertexArray1, greedyMapping)
 		svertexArray
-
-		// TEST MORE VNs:
-		// Greedy mapping VN2, update capacity
-                //var greedyMapping = vertexMappingGreedy(svertexArray, vvertexArray2)
-                //updateCapacity(svertexArray, vvertexArray2, greedyMapping)
-		//svertexArray
-		// Greedy mapping VN3, update capacity
-                //var greedyMapping = vertexMappingGreedy(svertexArray, vvertexArray3)
-                //updateCapacity(svertexArray, vvertexArray3, greedyMapping)
-                //svertexArray
 
 		// SHORTEST PATH
 		val look = sedgeArray.map{ case Edge(srcId, dstId, (attr1,attr2)) => Array(srcId, attr1, dstId)}
@@ -142,16 +106,6 @@ object VneApp {
                         p.println("================================================")
 			gv1.vertices.collect.foreach(p.println)
 	                gv1.edges.collect.foreach(p.println)
-                        p.println("================================================")
-                        p.println("===============Virtual Network2:================")
-                        p.println("================================================")
-                        gv2.vertices.collect.foreach(p.println)
-                        gv2.edges.collect.foreach(p.println)
-                        p.println("================================================")
-                        p.println("===============Virtual Network3:================")
-                        p.println("================================================")
-                        gv3.vertices.collect.foreach(p.println)
-                        gv3.edges.collect.foreach(p.println)
 			p.println("================================================")
 			p.println("================Greedy Mapping:=================")
                         p.println("================================================")
