@@ -1,6 +1,11 @@
-/* vne.scala */
 
-package org.ikt.spark.graphx.graphxvne
+/**
+  * @author Mahsa Noroozi: mhs_nrz@yahoo.com
+  * Virtual Network Embedding with Integer Linear Programming 
+  */
+
+
+package org.apache.spark.graphx.optimization.mlp
 
 import org.ikt.spark.graphx.graphxvne.vertexMapping._
 import org.ikt.spark.graphx.graphxvne.dijkstra.Dijkstra
@@ -17,10 +22,18 @@ import scala.collection.immutable.ListMap
  
 object VneApp {
 
+	/*
+	 * A function to write results in to a file
+	 */
+
 	def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit) {
 		val p = new java.io.PrintWriter(f)
 		try { op(p) } finally { p.close() }
 	}
+
+	/*
+	 * Main function to define substrate network and virtual network
+	 */
 
 	def main(args: Array[String]): Unit = {
 		val conf = new SparkConf().setAppName("VNE")

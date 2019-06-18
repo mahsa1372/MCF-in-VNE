@@ -1,4 +1,12 @@
-package org.ikt.spark.graphx.graphxvne
+/**
+  * @author Mahsa Noroozi: mhs_nrz@yahoo.com
+  * Vertex mapping with greedy function
+  */
+
+
+
+package org.apache.spark.graphx.optimization.mlp 
+
 
 import java.io._
 import scala.language.postfixOps

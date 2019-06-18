@@ -1,4 +1,12 @@
-package org.ikt.spark.graphx.graphxvne
+/**
+  * @author Mahsa Noroozi: mhs_nrz@yahoo.com
+  * Dijkstra function
+  */
+
+
+
+package org.apache.spark.graphx.optimization.mlp 
+
 
 class dijkstra {
 	
