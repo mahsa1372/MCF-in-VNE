@@ -80,14 +80,15 @@ object VneApp {
 
 
 		//GREEDY NODE MAPPING:
-		val greedyMapping = vertexMappingGreedy(svertexArray,vvertexArray1)
+		val greedyMapping = vertexMappingGreedy(gs.vertices.collect,gv1.vertices.collect)
 	
 		// UPDATE CAPACITY:
 		updateCapacity(svertexArray, vvertexArray1, greedyMapping)
-		svertexArray
+		val svertexNewRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
+		val gsNew: Graph[(String, Int), (Int, Int)] = Graph(svertexNewRDD, sedgeRDD)
 
 		// SHORTEST PATH
-		val look = sedgeArray.map{ case Edge(srcId, dstId, (attr1,attr2)) => Array(srcId, attr1, dstId)}
+		val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => Array(srcId, attr1, dstId)}
 				.groupBy(edge => edge(0)).map{ case (key, look) => (key.toLong, look.map
 				{case Array(src, attr, dst) => (attr.toDouble, dst) }.toSet.toList)}
 
@@ -113,7 +114,7 @@ object VneApp {
                         p.println("================================================")
 			p.println("=========update capacity after mapping:=========")
                         p.println("================================================")
-			svertexArray.foreach(p.println)
+			gsNew.vertices.collect.foreach(p.println)
                         p.println("================================================")
                         p.println("===========Shortest Path from 1 to 5============")
                         p.println("================================================")
