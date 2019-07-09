@@ -2,10 +2,10 @@
   * @author Mahsa Noroozi: mhs_nrz@yahoo.com
   */
 
-package org.apache.spark.graphx.optimization.mlp
+package org.apache.spark.graphx.optimization.mip
 
 import org.scalatest.FunSuite
-import org.apache.spark.graphx.optimization.mlp.vertexMapping._
+import org.apache.spark.graphx.optimization.mip.vertexMapping._
 import java.io._
 import scala.language.postfixOps
 import scala.collection.mutable.ArrayBuffer

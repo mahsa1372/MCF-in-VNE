@@ -5,7 +5,7 @@
 
 
 
-package org.apache.spark.graphx.optimization.mlp 
+package org.apache.spark.graphx.optimization.mip 
 
 
 abstract class dijkstra {

@@ -2,10 +2,10 @@
   * @author Mahsa Noroozi: mhs_nrz@yahoo.com
   */
 
-package org.apache.spark.graphx.optimization.mlp
+package org.apache.spark.graphx.optimization.mip
 
 import org.scalatest.FunSuite
-import org.apache.spark.graphx.optimization.mlp.VneApp._
+import org.apache.spark.graphx.optimization.mip.VneApp._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._

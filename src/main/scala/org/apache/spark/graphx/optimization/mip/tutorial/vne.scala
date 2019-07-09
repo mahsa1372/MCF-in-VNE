@@ -5,10 +5,10 @@
   */
 
 
-package org.apache.spark.graphx.optimization.mlp
+package org.apache.spark.graphx.optimization.mip
 
-import org.apache.spark.graphx.optimization.mlp.vertexMapping._
-import org.apache.spark.graphx.optimization.mlp.dijkstra.Dijkstra
+import org.apache.spark.graphx.optimization.mip.vertexMapping._
+import org.apache.spark.graphx.optimization.mip.dijkstra.Dijkstra
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
