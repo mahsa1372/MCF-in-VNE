@@ -3,9 +3,7 @@ package org.apache.spark.graphx.optimization.mip
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
 
-class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends MinimizerLP {
-
-	var v: Array [Int] = null
+class Simplex (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) extends MinimizerLP {
 
 	private val DANTIZ = true // use Dantiz's pivot rule
 	private val DEBUG = false // DEBUG mode => show all pivot steps
@@ -13,19 +11,18 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 	
 	private val M = a.size // the number of constraints (rows)
 	private val N = a(0).size // the number of decision variables
-	private val R = 0 // the number of artificial variables (negative members in b)
 	private val MpN = M + N // the number of non-artificial variables
 	private val MM = M + 1 // # row in tableau
 
-	private var nn = MpN + R + 1 // # columns in tableau
+	private var nn = MpN + 1 // # columns in tableau
 	private var jj = nn - 1 // the last column (b)
 	private val MAX_ITER = 200 * N // maximum number of iterations
-	private var flip = 1 // 1(slack) or -1(surplus) depending on b_i
+	private var flip = 1.0 // 1(slack) or -1(surplus) depending on b_i
 
 	if (b.size != M) println(b.size + " != " + M)
         if (c.size != N) println(c.size + " != " + N)
 
-	private val t = Array.ofDim[Int](MM, nn) // the MM-by-nn simplex tableau
+	private val t = Array.ofDim[Double](MM, nn) // the MM-by-nn simplex tableau
 	for (i <- 0 until M) {
 		for (j <- 0 until N) {
 			t(i)(j) = a(i)(j) // col x: constraint matrix a
@@ -46,17 +43,17 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 		} // for
 	} // initBasis
 
-	def argmax (e: Int, v: Array [Int]): Int = {
+	def argmax (e: Int, v: Array [Double]): Int = {
 		var j = 0
-		for (i <- 1 until v.size if v(i) > v(j)) j = i
+		for (i <- 0 until e if v(i) > v(j)) j = i
 		j
 	} // argmax
 
-	def argmaxPos (e: Int, v: Array [Int]): Int = {
+	def argmaxPos (e: Int, v: Array [Double]): Int = {
 		val j = argmax (e, v); if (v(j) > 0.0) j else -1
 	} // argmaxPos
 
-	def firstPos (e: Int, v: Array[Int]): Int = {
+	def firstPos (e: Int, v: Array[Double]): Int = {
 		for (i <- 0 until e if v(i) > 0.0) return i; -1
 	} // firstPos
 
@@ -64,8 +61,8 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 		if (DANTIZ) argmaxPos (jj, t(M)) else firstPos (jj, t(M))
 	} // entering
 
-	def col (t: Array[Array[Int]], col: Int, from: Int = 0): Array[Int] = {
-		val u = Array.ofDim[Int](t.size)
+	def col (t: Array[Array[Double]], col: Int, from: Int = 0): Array[Double] = {
+		val u = Array.ofDim[Double](t.size)
 		for (i <- from until t.size) u(i-from) = t(i)(col)
 		u
 	}
@@ -88,16 +85,16 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 	def pivot (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		print(" leaving = " + k)
-		for (i <- 0 to nn) t(k)(i) = t(k)(i) / t(k)(l) // make pivot 1  !!!!!!!!!!!!!!! nn or jj ??????
+		for (i <- 0 to jj) t(k)(i) = t(k)(i) / t(k)(l) // make pivot 1
 		for (i <- 0 to M if i != k) { 
-			for (j <- 0 to nn) {
+			for (j <- 0 to jj) {
 				t(i)(j) = t(i)(j) - t(k)(j) * t(i)(l) // zero rest of column l
 			} // for
 		} // for
 		x_B(k) = l // update basis (l replaces k)
 	} // pivot
 
-	def solve_1 (): Array[Int] = {
+	def solve_1 (): Array[Double] = {
 		if (DEBUG) showTableau (0) // for iter = 0
 		var k = -1 // the leaving variable (row)
 		var l = -1 // the entering variable (column)
@@ -123,9 +120,9 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 		} // if
 	} // infeasible
 
-	def solve (): Array[Int] = {
-		var x: Array[Int] = null // the decision variables
-		var y: Array[Int] = null // the dual variables
+	def solve (): Array[Double] = {
+		var x: Array[Double] = null // the decision variables
+		var y: Array[Double] = null // the dual variables
 		var f = Double.PositiveInfinity // worst possible value for minimization
 
 		for (i <- 0 to N) {
@@ -141,19 +138,19 @@ class Simplex (a: Array[Array[Int]], b: Array[Int], c: Array[Int]) extends Minim
 		x
 	} // solve
 
-	def primal: Array[Int] = {
-		val x = Array.ofDim[Int](N)
+	def primal: Array[Double] = {
+		val x = Array.ofDim[Double](N)
 		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i)(jj)   // RHS value
 		x
 	} // primal
 
-	def dual: Array[Int] = {
-		val u = Array.ofDim[Int](MpN-N+1)
-                for (i <- N to MpN) u(i) = t(M)(i)
-                u
+	def dual: Array[Double] = {
+		val u = Array.ofDim[Double](MpN-N+1)
+		for (i <- N to MpN) u(i) = t(M)(i)
+		u
 	}
 
-	def objF (x: Array[Int]): Double = t(M)(jj) 
+	def objF (x: Array[Double]): Double = t(M)(jj) 
 
 	def showTableau (iter: Int) {
 		println ("showTableau: --------------------------------------------------------")
