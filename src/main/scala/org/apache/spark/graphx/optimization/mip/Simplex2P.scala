@@ -3,17 +3,18 @@ package org.apache.spark.graphx.optimization.mip
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
 
-class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double], m: Int, n: Int) {
+class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 
 	private val DANTIZ = true // use Dantiz's pivot rule
 	private val DEBUG = false // DEBUG mode => show all pivot steps
 	
 	private val M = a.size // the number of constraints (rows)
 	private val N = a(0).size // the number of decision variables
-	private val MpN = M + N + 1 - m// the number of non-artificial variables
+	private val R = countNeg(b)
+	private val MpN = M + N //- m// the number of non-artificial variables
 	private val MM = M + 1 // # row in tableau
 
-	private var nn = MpN + 1 // # columns in tableau
+	private var nn = MpN + R + 1 // # columns in tableau
 	private var jj = nn - 1 // the last column (b)
 	private val MAX_ITER = 200 * N // maximum number of iterations
 	private var flip = 1.0 // 1(slack) or -1(surplus) depending on b_i
@@ -28,18 +29,12 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double], m:
 		for (j <- 0 until N) {
 			t(i)(j) = a(i)(j) // col x: constraint matrix a
 		}
-		if (i >= m) {
-			t(i)(N + k) = flip // col y: slack/surplus variable matrix s
-			k += 1
-		}
-		//if (flip < 0) { jr += 1; t(i)(MpN + jr) = 1.0 }
+		flip = if (b(i) < 0.0) -1.0 else 1.0
+		t(i)(N + i) = flip // col y: slack/surplus variable matrix s
+		if (flip < 0) { jr += 1; t(i)(MpN + jr) = 1.0 }
 		t(i)(jj) = b(i) * flip // col b: limit/RHS vector b
 	} // for
 
-//	for (i <- 0 until m) {
-//		t(i)(N + i) = 0.0
-//	}
-	t(M)(jj-1) = 1
 	private val x_B = Array.ofDim [Int] (M) // the indices of the basis
 
 	def initBasis () {
@@ -50,31 +45,45 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double], m:
 			} else {
 				jr += 1
 				x_B(i) = MpN + jr
-				for (j <- 0 until jj) t(M)(j) = t(i)(j) 
+				for (j <- 0 until nn) t(M)(j) += t(i)(j) 
 			} //if
 		} // for
 	} // initBasis
 
+	def countNeg(v: Array[Double]): Int = {
+		var count = 0
+		for (i <- 0 until v.size if v(i) < 0.0) count += 1
+		count
+	} // countNeg
+
+	def setCol (col: Int, u: Array[Double], t: Array[Array[Double]]) { for (i <- 0 until MM) t(i)(col) = u(i) }
+
 	def argmax (e: Int, v: Array [Double]): Int = {
 		var j = 0
-		for (i <- 0 until e )
-			if (v(j) >= 0.0) {
+		for (i <- 0 until e ) {
+//			if (v(i) > v(j)) j = i
+//			if (v(j) == 0.0 && v(i) > v(j)) j = i 
+//			if (v(i) < v(j) && v(i) > 0.0) j = i
+/*			if (v(j) >= 0.0) {
 				if (v(i) < v(j)) j = i
 			}
 			else if (-v(i) < -v(j) && v(i) < 0.0) j = i
+		}
+*/
+		if (v(i) > v(j)) j = i }
 		j
 	} // argmax
 
 	def argmaxPos (e: Int, v: Array [Double]): Int = {
-		val j = argmax (e, v); if (v(j) < 0.0) j else -1
+		val j = argmax (e, v); if (v(j) > 0.0) j else -1
 	} // argmaxPos
 
 	def firstPos (e: Int, v: Array[Double]): Int = {
-		for (i <- 0 until e if v(i) < 0.0) return i; -1
+		for (i <- 0 until e if v(i) > 0.0) return i; -1
 	} // firstPos
 
 	def entering (): Int = {
-		if (DANTIZ) argmaxPos (N, t(M)) else firstPos (N, t(M))
+		if (DANTIZ) argmaxPos (N, t(M)) else firstPos (N, t(M)) // N, t(M)
 	} // entering
 
 	def col (t: Array[Array[Double]], col: Int, from: Int = 0): Array[Double] = {
@@ -113,25 +122,25 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double], m:
 		x_B(k) = l // update basis (l replaces k)
 	} // pivot
 
-	def setCol (col: Int, u: Array[Double], t: Array[Array[Double]]) { for (i <- 0 until M) t(i)(col) = u(i) }
+	def removeArtificials () {
+		nn -= R
+		jj -= R
+		setCol(jj, col(t, jj + R), t)
+		 for (i <- 0 until N) {
+                        t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
+                }
+		for (j <- 0 until N if x_B contains j) { 
+			val pivotRow = argmax (M, col(t, j))    // find the pivot row where element = 1
+			val pivotCol = t(M)(j)
+			for (i <- 0 until nn) t(M)(i) -= t(pivotRow)(i) * pivotCol // make cost row 0 in pivot column (j)
+		} // for
+	}
 
-	def solve (): Array[Double] = {
-		var x: Array[Double] = null // the decision variables
-		var y: Array[Double] = null // the dual variables
-		var f : Double = 0.0 // worst possible value for minimization
-
-		for (i <- 0 until N) {
-			t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
-		}
-
-		initBasis () // initialize the basis to the slack and artificial vars
-
-		println ("solve: --------------------------------------------")
-
+	def solve_1 () : Array[Double] = {
 		var k = -1 // the leaving variable (row)
-		var l = -1 // the entering variable (column)
+                var l = -1 // the entering variable (column)
 
-		for (i <- 0 to M) {
+                for (i <- 0 to M) {
                         for (j <- 0 to jj) {
                                 print(t(i)(j) + "|")
                         }
@@ -139,20 +148,54 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double], m:
                 }
 
 
-		breakable {
-			for (it <- 1 to MAX_ITER) {
-				l = entering (); if (l == -1) break // -1 => optimal solution found
-				k = leaving (l); if (k == -1) break // -1 => solution is unbounded
-				pivot (k, l) // pivot: k leaves and l enters
-				for (i <- 0 to M) {
-					for (j <- 0 to jj) {
-						print(t(i)(j) + "|")
-					}
-					println("")
-				}
-			} // for
-		} // breakable
+                breakable {
+                        for (it <- 1 to MAX_ITER) {
+                                l = entering (); if (l == -1) break // -1 => optimal solution found
+                                k = leaving (l); if (k == -1) break // -1 => solution is unbounded
+                                pivot (k, l) // pivot: k leaves and l enters
+                                for (i <- 0 to M) {
+                                        for (j <- 0 to jj) {
+                                                print(t(i)(j) + "|")
+                                        }
+                                        println("")
+                                }
+                        } // for
+                } // breakable
                 primal // return the optimal vector x
+	}
+
+	def solve (): Array[Double] = {
+		var x: Array[Double] = null // the decision variables
+		var y: Array[Double] = null // the dual variables
+		var f = Double.PositiveInfinity // worst possible value for minimization
+
+		if (R > 0) {
+			for (i <- MpN until jj) t(M)(i) = -1.0
+		} else {
+			for (i <- 0 until N) t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
+		}
+
+		initBasis () // initialize the basis to the slack and artificial vars
+		
+		if (R > 0) {
+			println ("solve:  Phase I ---------------------------------------------")
+			println ("decision = " + N + ", slack = " + (M-R))
+			println (", surplus = " + R + ", artificial = " + R)
+			x = solve_1 ()                       // solve the Phase I problem: optimal f = 0
+			f = objF (x)
+			println ("solve:  Phase I solution x = " + x + ", f = " + f)
+			removeArtificials ()                 // remove the artificial variables and reset cost row
+		} // if
+		
+		println ("solve: Phase II --------------------------------------------")
+
+		for (i <- 0 to M) {
+                        for (j <- 0 to jj) {
+                                print(t(i)(j) + "|")
+                        }
+                        println("")
+                }
+		x = solve_1 ()
 		f = objF (x)
 		x
 	} // solve
