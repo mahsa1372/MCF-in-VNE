@@ -61,15 +61,6 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	def argmax (e: Int, v: Array [Double]): Int = {
 		var j = 0
 		for (i <- 0 until e ) {
-//			if (v(i) > v(j)) j = i
-//			if (v(j) == 0.0 && v(i) > v(j)) j = i 
-//			if (v(i) < v(j) && v(i) > 0.0) j = i
-/*			if (v(j) >= 0.0) {
-				if (v(i) < v(j)) j = i
-			}
-			else if (-v(i) < -v(j) && v(i) < 0.0) j = i
-		}
-*/
 		if (v(i) > v(j)) j = i }
 		j
 	} // argmax
