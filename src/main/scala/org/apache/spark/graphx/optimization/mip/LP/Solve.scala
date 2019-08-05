@@ -28,7 +28,7 @@ object Solve {
 
 		val lp = new Simplex(a,b,c)
 		val x = lp.solve()
-		val y = lp.dual
+//		val y = lp.dual
 		val f = lp.objF(x)
 		x.Print
 		println("Optimal Solution = " + f)
