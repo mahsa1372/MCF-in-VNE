@@ -43,7 +43,7 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 			} else {
 				jr += 1
 				x_B(i) = MpN + jr
-				t(M) += t(i) 
+				for (j <- 0 until nn) t(M, j) += t(i, j) //t(M) += t(i) 
 			} //if
 		} // for
 	} // initBasis
@@ -61,21 +61,21 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 		} // for
 		if (k == -1) println("leaving, the solution is UNBOUNDED")
 		if (DEBUG){
-			print("pivot = (" + k)
-			print(", " + l + ")") 
+			//print("pivot = (" + k)
+			//print(", " + l + ")") 
 		}
 		k
 	} // leaving
 
 	def pivot (k: Int, l: Int) {
-		print("pivot: entering = " + l)
-		print(" leaving = " + k)
-		println("")
+		//print("pivot: entering = " + l)
+		//print(" leaving = " + k)
+		//println("")
 		val pivot = t(k, l)
-		t(k) /= pivot // make pivot 1
+		for (i <- 0 to jj) t(k, i) = t(k, i) / pivot //t(k) /= pivot // make pivot 1
 		for (i <- 0 to M if i != k) { 
 			val pivotColumn = t(i, l)
-			t(i) -= t(k) * pivotColumn
+			for (j <- 0 to jj) t(i, j) = t(i, j) - t(k, j) * pivotColumn //t(i) -= t(k) * pivotColumn
 		} // for
 		x_B(k) = l // update basis (l replaces k)
 	} // pivot
@@ -85,12 +85,12 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 		jj -= R
 		t.setCol(jj, t.col(jj + R))
 		 for (i <- 0 until N) {
-                        t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
+                        t(M, i) = -c(i) // set cost row (M) in the tableau to given cost vector
                 }
 		for (j <- 0 until N if x_B contains j) { 
 			val pivotRow = t.col(j).argmax (M)    // find the pivot row where element = 1
 			val pivotCol = t(M, j)
-			t(M) -= t(pivotRow) * pivotCol // make cost row 0 in pivot column (j)
+			for (i <- 0 until nn) t(M, i) -= t(pivotRow, i) * pivotCol //t(M) -= t(pivotRow) * pivotCol // make cost row 0 in pivot column (j)
 		} // for
 	}
 
@@ -98,14 +98,14 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 		var k = -1 // the leaving variable (row)
                 var l = -1 // the entering variable (column)
 
-		t.Print
+		//t.Print
 
                 breakable {
                         for (it <- 1 to MAX_ITER) {
                                 l = entering (); if (l == -1) break // -1 => optimal solution found
                                 k = leaving (l); if (k == -1) break // -1 => solution is unbounded
                                 pivot (k, l) // pivot: k leaves and l enters
-				t.Print
+				//t.Print
                         } // for
                 } // breakable
                 primal // return the optimal vector x
@@ -117,19 +117,26 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 		var f = Double.PositiveInfinity // worst possible value for minimization
 
 		if (R > 0) {
-			for (i <- MpN until jj) t(M, i) = -1.0
+			//println("R greater than zero")
+			for (i <- MpN until jj) {
+				t.set(M, i, -1.0) //t(M)(i) = -1.0
+				//println("t(" + M + ")(" + i + ") = " + t(M)(i))
+			}
 			//t(M)(MpN until jj) = -1.0
 		} else {
-			for (i <- 0 until N) t(M, i) = -c(i)
+			for (i <- 0 until N) {
+				t.set(M, i, -c(i)) //t(M)(i) = -c(i)
+                                //println("t(" + M + ")(" + i + ") = " + t(M)(i))
+			}
 			//t(M)(0 until N) = -c // set cost row (M) in the tableau to given cost vector
 		}
 
 		initBasis () // initialize the basis to the slack and artificial vars
-		
+		//t.Print
 		if (R > 0) {
 			println ("solve:  Phase I ---------------------------------------------")
-			println ("decision = " + N + ", slack = " + (M-R))
-			println (", surplus = " + R + ", artificial = " + R)
+			//println ("decision = " + N + ", slack = " + (M-R))
+			//println (", surplus = " + R + ", artificial = " + R)
 			x = solve_1 ()                       // solve the Phase I problem: optimal f = 0
 			f = objF (x)
 			println ("solve:  Phase I solution x = " + x + ", f = " + f)
@@ -137,7 +144,7 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 		} // if
 		
 		println ("solve: Phase II --------------------------------------------")
-		t.Print
+		//t.Print
 
 		x = solve_1 ()
 		f = objF (x)
@@ -147,14 +154,14 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 	def primal: Vector = {
 		val x = new Vector(N)
 		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i, jj)   // RHS value
-		x.Print
+		x.Print(N)
 		x
 	} // primal
 
 	def dual: Vector = {
 		val u = new Vector(MpN-N)
 		for (i <- N until MpN) u(i-N) = t(M, i)
-		u.Print
+		//u.Print
 		u
 	}
 

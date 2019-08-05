@@ -33,8 +33,8 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) { // val a = 
 	} // Print
 
 	// Print an element of vector
-	def Print (i: Int) {
-		print(v(i))
+	def Print (j: Int) {
+		for (i <- 0 until j) println("v(" + i + ")=" + v(i))
 	} // Print
 
 	// Create a zero-vector 
@@ -113,13 +113,13 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) { // val a = 
 
 	// Add in-place two vectors together
 	def += (b: Vector): Vector = { 
-		for (i <- 0 until dim) v(i) += b(i)
+		for (i <- 0 until dim) v(i) += b.v(i)
 		this 
 	} // +=
 
 	// Subtract in-place two vectors 
 	def -= (b: Vector): Vector = { 
-		for (i <- 0 until dim) v(i) -= b(i)
+		for (i <- 0 until dim) v(i) -= b.v(i)
 		this 
 	}
 

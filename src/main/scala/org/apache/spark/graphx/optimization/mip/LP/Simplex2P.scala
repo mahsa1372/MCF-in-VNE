@@ -116,6 +116,7 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	def removeArtificials () {
 		nn -= R
 		jj -= R
+                println("nn:" + nn + ",jj:" + jj)
 		setCol(jj, col(t, jj + R), t)
 		 for (i <- 0 until N) {
                         t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
@@ -161,13 +162,26 @@ class Simplex2P (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 		var f = Double.PositiveInfinity // worst possible value for minimization
 
 		if (R > 0) {
-			for (i <- MpN until jj) t(M)(i) = -1.0
+			println("R greater than zero")
+			for (i <- MpN until jj) {
+				t(M)(i) = -1.0
+                                //println("t(" + M + ")(" + i + ") = " + t(M)(i))
+			}				
 		} else {
-			for (i <- 0 until N) t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
+			for (i <- 0 until N) {
+				t(M)(i) = -c(i) // set cost row (M) in the tableau to given cost vector
+                                //println("t(" + M + ")(" + i + ") = " + t(M)(i))
+			}
 		}
 
 		initBasis () // initialize the basis to the slack and artificial vars
-		
+		for (i <- 0 to M) {
+                        for (j <- 0 to jj) {
+                                print(t(i)(j) + "|")
+                        }
+                        println("")
+                }
+
 		if (R > 0) {
 			println ("solve:  Phase I ---------------------------------------------")
 			println ("decision = " + N + ", slack = " + (M-R))
