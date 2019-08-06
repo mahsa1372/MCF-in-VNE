@@ -1,3 +1,27 @@
+/*
+ *  @author  Mahsa Noroozi & John Miller
+ */
+//-------------------------------------------------------------------------------------------------------------------------------
+/** The "IntegerLP" class solves Integer Linear Programming (ILP) and Mixed Integer
+ *  Linear Programming (MILP) problems recursively using the Simplex algorithm.
+ *  First, an LP problem is solved.  If the optimal solution vector x is entirely integer valued, the ILP is solved.
+ *  If not, pick the first 'x(j)' that is not integer valued.
+ *  Define two new LP problems which bound 'x(j)' to the integer below and above, respectively.
+ *  Branch by solving each of these LP problems in turn.
+ *  Prune by not exploring branches less optimal than the currently best integer solution.
+ *  This technique is referred to as Branch and Bound.
+ *  An exclusion set may be optionally provided for MILP problems.
+ *
+ *  Given a constraint matrix 'a', limit/RHS vector 'b' and cost vector 'c',
+ *  find values for the solution/decision vector 'x' that minimize the
+ *  objective function 'f(x)', while satisfying all of the constraints.
+ *
+ *  @param a     the M-by-N constraint matrix
+ *  @param b     the M-length limit/RHS vector
+ *  @param c     the N-length cost vector
+ *  @param excl  the set of variables to be excluded from the integer requirement 
+ */
+//-------------------------------------------------------------------------------------------------------------------------------
 package org.apache.spark.graphx.optimization.mip
 
 import scala.math.{abs, ceil, floor, round}
