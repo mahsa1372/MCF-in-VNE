@@ -1,3 +1,34 @@
+/*
+ *  @author  Mahsa Noroozi & John Miller
+ */
+//-------------------------------------------------------------------------------------------------------------------------------
+/*  The "Simplex2P" class solves Linear Programming problems using a tableau based Simplex Algorithm.
+ *  Given a constraint matrix 'a', limit/RHS vector 'b' and cost vector 'c'
+ *  ,find values for the solution/decision vector 'x' that minimize the objective function 'f(x)'
+ *  ,while satisfying all of the constraints.
+ *
+ *  In case of "a(i)x == b(i)", use "a(i)x >= b(i)" and "a(i)x <= b(i)".
+ *  In case of "negative b(i)", multiply the whole constraint with -1.
+ *  In case of "a(i)x >= b(i)", use -b(i) as an indicator of ">=" constraint.
+ *  The program will flip such negative b_i back to positive as well as use
+ *  a surplus and artificial variable instead of the usual slack variable.
+ *  For each '>=' constraint, an artificial variable is introduced and put into the initial basis.
+ *  These artificial variables must be removed from the basis during Phase I of the Two-Phase Simplex Algorithm.
+ *  If there are no artificial variables, Phase II is used to find an optimal value for 'x' and the optimum value for 'f'. 
+ *
+ *  Creates an 'MM-by-nn' simplex tableau with
+ *  -- [0..M-1, 0..N-1]    = a (constraint matrix)
+ *  -- [0..M-1, N..M+N-1]  = s (slack/surplus variable matrix)
+ *  -- [0..M-1, M+N..NN-2] = r (artificial variable matrix)
+ *  -- [0..M-1, NN-1]      = b (limit/RHS vector)
+ *  -- [M, 0..NN-2]        = c (cost vector)
+ *
+ *  @param a  the M-by-N constraint matrix
+ *  @param b  the M-length limit/RHS vector
+ *  @param c  the N-length cost vector
+ */
+//-------------------------------------------------------------------------------------------------------------------------------
+
 package org.apache.spark.graphx.optimization.mip
 
 import scala.math.abs
@@ -5,132 +36,151 @@ import scala.util.control.Breaks.{breakable, break}
 
 class Simplex (a: Matrix, b: Vector, c: Vector) {
 	
-	private val M = a.dim1			// the number of constraints
-	private val N = a.dim2			// the number of decision variables
-	private val A = b.countNeg		// the number of artificial variables
-	private val nA = M + N			// the number of non-artificial variables
-	private val MM = M + 1			// the number of rows in tableau
-	private var NN = nA + A + 1		// the number of columns in tableau
-	private var lc = NN - 1			// the last column: Vector b
-	private val MAX_ITER = 200 * N		// maximum number of iterations
-	private var flag = 1.0			// flag: 1 for slack or -1 for surplus depending on b
+	// ------------------------------Initialize the basic variables from input-----------------------------------------------
+	private val M = a.dim1						// the number of constraints
+	private val N = a.dim2						// the number of decision variables
+	private val A = b.countNeg					// the number of artificial variables
+	private val nA = M + N						// the number of non-artificial variables
+	private val MM = M + 1						// the number of rows in tableau
+	private var NN = nA + A + 1					// the number of columns in tableau
+	private var lc = NN - 1						// the last column: Vector b
+	private val MAX_ITER = 200 * N					// maximum number of iterations
+	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
+        private val t = new Matrix(MM, NN)                              // the MM-by-NN simplex tableau
+        private var ca = -1                                             // counter for artificial variables
+	private val x_B = Array.ofDim [Int] (M)				// the basis
 
-	if (b.dim != M) println(b.dim + " != " + M)
-        if (c.dim != N) println(c.dim + " != " + N)
+	// ------------------------------Check the dimensions from input---------------------------------------------------------
+	if (b.dim != M) println(b.dim + " != " + M)			// ckeck b dimension 
+        if (c.dim != N) println(c.dim + " != " + N)			// check c dimension
 
-	private val t = new Matrix(MM, NN) // the MM-by-NN simplex tableau
-	private var ca = -1
-	private var k = 0
+	// ------------------------------Initialize the tableau------------------------------------------------------------------
 	for (i <- 0 until M) {
-		t.set(i, a(i))
+		t.set(i, a(i))						// col x: constraint matrix a
 		flag = if (b(i) < 0.0) -1.0 else 1.0
-		t(i, N + i) = flag // col y: slack/surplus variable matrix s
+		t(i, N + i) = flag					// col y: slack/surplus variable matrix s
 		if (flag < 0) { ca += 1; t(i, nA + ca) = 1.0 }
-		t(i, lc) = b(i) * flag // col b: limit/RHS vector b
-	} // for
-
-	private val x_B = Array.ofDim [Int] (M) // the indices of the basis
-
-	def initBasis () {
-		ca = -1
-		for (i <- 0 until M) {
-			if (b(i) >= 0) {
-				x_B(i) = N + i        // put slack variable in basis
-			} else {
-				ca += 1
-				x_B(i) = nA + ca
-				for (j <- 0 until NN) t(M, j) += t(i, j)  
-			} //if
-		} // for
-	} // initBasis
-
-	def leaving (l: Int): Int = {
-		val b_ = t.col(lc) // updated b column (RHS)
-		var k  = -1
-		for (i <- 0 until M if t(i, l) > 0) { // find the pivot row
-			if (k == -1) k = i
-			else if (b_(i) / t(i, l) <= b_(k) / t(k, l)) k = i // lower ratio => reset k
-		} // for
-		if (k == -1) println("leaving, the solution is UNBOUNDED")
-		k
-	} // leaving
-
-	def pivot (k: Int, l: Int) {
-		val pivot = t(k, l)
-		for (i <- 0 to lc) t(k, i) = t(k, i) / pivot // make pivot 1
-		for (i <- 0 to M if i != k) { 
-			val pivotColumn = t(i, l)
-			for (j <- 0 to lc) t(i, j) = t(i, j) - t(k, j) * pivotColumn 
-		} // for
-		x_B(k) = l // update basis (l replaces k)
-	} // pivot
-
-	def removeArtificials () {
-		NN -= A
-		lc -= A
-		t.setCol(lc, t.col(lc + A))
-		 for (i <- 0 until N) {
-                        t(M, i) = -c(i) // set cost row (M) in the tableau to given cost vector
-                }
-		for (j <- 0 until N if x_B contains j) { 
-			val pivotRow = t.col(j).argmax (M)    // find the pivot row where element = 1
-			val pivotCol = t(M, j)
-			for (i <- 0 until NN) t(M, i) -= t(pivotRow, i) * pivotCol // make cost row 0 in pivot column (j)
-		} // for
+		t(i, lc) = b(i) * flag					// col b: limit/RHS vector b
 	}
 
-	def solve_1 () : Vector = {
-		var k = -1 // the leaving variable (row)
-                var l = -1 // the entering variable (column)
+	// ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
+	def initializeBasis () {
+		ca = -1							// counter
+		for (i <- 0 until M) {
+			if (b(i) >= 0) {
+				x_B(i) = N + i				// set basis with slack variable
+			} else {
+				ca += 1					// add counter
+				x_B(i) = nA + ca			// set basis with artificial variable
+				for (j <- 0 until NN) t(M, j) += t(i, j)// make t(M, nA + j) zero
+			}
+		}
+	}
+
+	// ------------------------------Entering variable selection(pivot column)-----------------------------------------------
+	def entering (): Int = {
+		t(M).argmaxPos (N)					// index of max positive
+	}
+
+	// ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
+	def leaving (l: Int): Int = {
+		val B = t.col(lc)					// updated b column
+		var k  = -1
+		for (i <- 0 until M if t(i, l) > 0) {			// find the pivot row
+			if (k == -1) k = i
+			else if (B(i) / t(i, l) <= B(k) / t(k, l)) {
+				k = i					// smaller : reset k
+			}
+		}
+		if (k == -1) println("The solution is UNBOUNDED")
+		k
+	}
+
+	// ------------------------------Update tableau with pivot row and column------------------------------------------------
+	def update (k: Int, l: Int) {
+		val pivot = t(k, l)
+		for (i <- 0 to lc) t(k, i) = t(k, i) / pivot		// make pivot 1 and update the pivot row
+		for (i <- 0 to M if i != k) { 
+			val pivotColumn = t(i, l)
+			for (j <- 0 to lc) {
+				t(i, j) =t(i, j) - t(k, j)* pivotColumn // update rest of pivot column to zero
+			}
+		}
+		x_B(k) = l						// update basis
+	}
+
+	// ------------------------------Remove the artificial variables---------------------------------------------------------
+	def removeA () {
+		NN -= A							// reduce the width of the tableau
+		lc -= A							// reset the index of the last column
+		t.setCol(lc, t.col(lc + A))				// move the b vector to the new last column
+		 for (i <- 0 until N) {
+                        t(M, i) = -c(i)					// set cost row to given cost vector
+                }
+		for (j <- 0 until N if x_B contains j) { 
+			val pivotRow = t.col(j).argmax (M)		// find the pivot row
+			val pivotCol = t(M, j)				// find the pivot column
+			for (i <- 0 until NN) {
+				t(M, i) -= t(pivotRow, i) * pivotCol	// make cost row 0 in pivot column
+			}
+		}
+	}
+
+	// ------------------------------Simplex algorithm-----------------------------------------------------------------------
+	def solve1 () : Vector = {
+		var k = -1						// the leaving variable (row)
+                var l = -1						// the entering variable (column)
 
                 breakable {
                         for (it <- 1 to MAX_ITER) {
-                                l = t(M).argmaxPos (N); if (l == -1) break // -1 => optimal solution found
-                                k = leaving (l); if (k == -1) break // -1 => solution is unbounded
-                                pivot (k, l) // pivot: k leaves and l enters
-                        } // for
-                } // breakable
-                primal // return the optimal vector x
+                                l = entering; if (l == -1) break	// -1 : optimal solution found
+                                k = leaving (l); if (k == -1) break	// -1 : solution is unbounded
+                                update (k, l)				// update: k leaves and l enters
+                        }
+                }
+                solution						// return the solution vector x
 	}
 
+	// ------------------------------Solve the LP minimization problem using two phases--------------------------------------
 	def solve (): Vector = {
-		var x: Vector = null // the decision variables
-		var y: Vector = null // the dual variables
-		var f = Double.PositiveInfinity // worst possible value for minimization
+		var x: Vector = null					// the decision variables
+		var f = Double.PositiveInfinity				// worst possible value for minimization
 
 		if (A > 0) {
 			for (i <- nA until lc) {
-				t.set(M, i, -1.0) //t(M)(i) = -1.0
+				t.set(M, i, -1.0)			// set cost row to remove artificials
 			}
 		} else {
 			for (i <- 0 until N) {
-				t.set(M, i, -c(i)) //t(M)(i) = -c(i)
-			} // set cost row (M) in the tableau to given cost vector
+				t.set(M, i, -c(i))			// set cost row to given cost vector
+			}
 		}
 
-		initBasis () // initialize the basis to the slack and artificial vars
+		initializeBasis ()
+
 		if (A > 0) {
 			println ("solve:  Phase I: ")
-			x = solve_1 ()                       // solve the Phase I problem: optimal f = 0
-			f = objF (x)
+			x = solve1 ()					// solve the Phase I problem
+			f = result (x)
 			println ("solve:  Phase I solution x = " + x + ", f = " + f)
-			removeArtificials ()                 // remove the artificial variables and reset cost row
-		} // if
+			removeA ()
+		}
 		
 		println ("solve: Phase II: ")
-
-		x = solve_1 ()
-		f = objF (x)
+		x = solve1 ()						// solve the Phase II problem
+		f = result (x)
 		x
-	} // solve
+	}
 
-	def primal: Vector = {
+	// ------------------------------Return the solution vector x------------------------------------------------------------
+	def solution: Vector = {
 		val x = new Vector(N)
-		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i, lc)   // RHS value
+		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i, lc)	// RHS value
 		x.Print(N)
 		x
-	} // primal
+	}
 
-	def objF (x: Vector): Double = t(M, lc)
+	// ------------------------------Return the result-----------------------------------------------------------------------
+	def result (x: Vector): Double = t(M, lc)			// bottom right cell in tableau
 
-} // Simplex class
+}

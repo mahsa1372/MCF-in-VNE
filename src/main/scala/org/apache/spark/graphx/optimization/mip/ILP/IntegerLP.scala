@@ -79,10 +79,9 @@ class IntegerLP (a: Array[Array[Double]], b: Array[Double], c: Array[Double], ex
 
 	def solve (dp: Int, cons: Constraints) {
 		val MAX_DEPTH = 4 * N                         // limit on depth of recursion  FIX ??
-		val lp = new Simplex2P (cons._1, cons._2, c)  // set up a new LP problem
+		val lp = new Simplex2 (cons._1, cons._2, c)   // set up a new LP problem
 		val x  = lp.solve ()                          // optimal primal solution vector for this LP
-		val y  = lp.dual                              // optimal dual solution vector for this LP
-		val f  = lp.objF (x)                          // optimal objective function value for this LP
+		val f  = lp.result (x)                        // optimal objective function value for this LP
 		val j = fractionalVar (x)                     // find j such that x_j is not an integer
 		var bound = 0.0
 

@@ -77,10 +77,9 @@ object SolveLPcopy {
 			}
 		} //For second rows: x[1][a]+x[1][b]<=1
 
-		val lp = new Simplex2P(a,b,c)
+		val lp = new Simplex2(a,b,c)
 		val x = lp.solve()
-                val y = lp.dual
-                val f = lp.objF(x)
+                val f = lp.result(x)
 
                 println("Optimal Solution = " + lp.solve)
 
