@@ -24,26 +24,21 @@ object SolveMCFinLP {
 
 	def main(args: Array[String]): Unit = {
 
-		val conf = new SparkConf().setAppName("SolveLPcopy")
+		val conf = new SparkConf().setAppName("SolveMCFinLP")
                 val sc = new SparkContext(conf)
 
 		// --------------------Define the substrate network using nodes and edges------------------------------
 		val svertexArray =Array((1L, ("1", 5)),
                                         (2L, ("2", 6)),
                                         (3L, ("3", 8)),
-                                        (4L, ("4", 9)),
-                                        (5L, ("5", 10)) )
+                                        (4L, ("4", 9)))
 
 		val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
 		val sedgeArray = Array( Edge(1L,2L,(1,1000)),
 					Edge(1L,3L,(1,1000)),
 					Edge(1L,4L,(1,1000)),
-                                        Edge(1L,5L,(5,1000)),
                                         Edge(2L,3L,(1,1000)),
-                                        Edge(2L,5L,(4,1000)),
-                                        Edge(3L,4L,(1,1000)),
-                                        Edge(4L,5L,(1,1000)),
-                                        Edge(5L,3L,(2,1000)))			// we assume the links bilateral
+                                        Edge(3L,4L,(1,1000)))			// we assume the links bilateral
 
                 val sedgeRDD: RDD[Edge[(Int,Int)]] = sc.parallelize(sedgeArray)
                 val gs: Graph[(String, Int), (Int, Int)] = Graph(svertexRDD, sedgeRDD)
@@ -64,39 +59,55 @@ object SolveMCFinLP {
 		// --------------------Define matrix of constraints and vector of costs--------------------------------
 		val m = gv.vertices.collect.size			// number of virtual nodes
 		val n = gs.vertices.collect.size			// number of substrate nodes
+		val mm = m*(m-1)					// number of virtual links
+		val nn = n*(n-1)					// number of substrate links
 		val ss = 1						// source substrate: X1
 		val sv = 1						// source virtual: Xa
-		val ds = 5						// destination substrate: X5
+		val ds = 4						// destination substrate: X5
 		val dv = 3						// destination virtual: Xc
-		val a = Array.ofDim[Double]((mm*n)+4+nn , mm*nn)	// define matrix a with constraints
-		val b = Array.fill[Double]((mm*n)+4+nn)(1.0)		// define vector b
-		for (i <- 0 until m) {
-			b(2*i + 1) = -1.0				// set vector b
-		}
-
+		val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
+		val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)	// define vector b
 		val c =  Array.ofDim[Double](mm*nn)			// define vector c
-		var ssorted = gs.vertices.collect.sortBy(x => (x._1, -x._2._2))
-		for (i <- 0 until m) {
-			for (j <- 0 until n) {
-				c(n*i+j) = ssorted(i)._2._2		// set vector c
+
+		val aa = Array.ofDim[Double]((mm*n)+nn , mm*nn)
+		val bb = Array.ofDim[Double]((mm*n)+nn)
+
+		var number = 0
+		var numberOfVLinks = 0
+		while (number < (mm*n)) {
+			numberOfVLinks += 1
+			var jjjj = 0
+			for (i <- 1 until n+1) {
+				var jjj = 1
+				for (j <- 1 until n+1) {
+					if (i == j) jjjj += 1
+					else {
+						aa(number)((nn*(numberOfVLinks-1)) + (((i-1)*(n-1))+jjj)) = 1.0
+						var iii = j
+						aa(number)((nn*(numberOfVLinks-1)) + (((iii-1)*(n-1))+jjjj)) = -1.0
+						jjj += 1
+					}
+				}
+				if (((ss == i) && ((sv-1)*(m-1)+1 <= numberOfVLinks) && (numberOfVLinks < (sv*(m-1))+1))
+				|| ((ds == i) && ((dv-1)*(m-1)+1 <= numberOfVLinks) && (numberOfVLinks < (dv*(m-1))+1))) {
+					bb(number) = 1.0
+				}
+				//else if () {
+				//	bb(number) = -1.0
+				//}
+				else bb(number) = 0.0
+				number += 1
 			}
 		}
-
-		var k = 0
-		for (i <- 0 until m) {
-			for (j <- 0 until n) {
-				a(2*i)(k) = 1.0
-				a(2*i+1)(k) = 1.0			// set matrix a for first rows
-				k = k + 1
+		for (i <- 0 until (mm*n)+nn) {
+			for (j <- 0 until mm*nn) {
+				print(aa(i)(j) + "|")
 			}
-		}							// x[1][a]+x[2][a]+x[3][a]=1
-
-		for (i <- 0 until n) {
-			for (j <- 0 until m) {
-				a(i+m+m)((n*j)+i) = 1.0			// set matrix a for second rows
-			}
-		}							// x[1][a]+x[1][b]<=1
-
+			println("")
+		}
+		for (i <- 0 until (mm*n)+nn) {
+			print(bb(i) + "|")
+		}
 		// --------------------Solve the problem using simplex algorithm---------------------------------------
 		val lp = new Simplex2(a,b,c)
 		val x = lp.solve()
