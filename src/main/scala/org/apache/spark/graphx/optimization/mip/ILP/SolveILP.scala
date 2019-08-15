@@ -29,8 +29,8 @@ object SolveILP {
 		val b = Array(1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 12.0, 12.0, 0.0, 0.0, 12.0, 12.0)
 		val c = Array(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0)
 
-		val ilp = new IntegerLP(a,b,c)
-		ilp.solve(0, (a,b))
-		println("Optimal Solution = " + ilp.solution)
+//		val ilp = new IntegerLP(a,b,c)
+//		ilp.solve(0, (a,b))
+//		println("Optimal Solution = " + ilp.solution)
 	}
 }
