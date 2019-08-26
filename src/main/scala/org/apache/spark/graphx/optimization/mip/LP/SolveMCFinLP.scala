@@ -27,7 +27,7 @@ object SolveMCFinLP {
 		val conf = new SparkConf().setAppName("SolveMCFinLP")
                 val sc = new SparkContext(conf)
 
-		// --------------------Define the substrate network using nodes and edges------------------------------
+/*		// --------------------Define the substrate network using nodes and edges------------------------------
 		val svertexArray =Array((1L, ("1", 5)),
                                         (2L, ("2", 6)),
                                         (3L, ("3", 8)))
@@ -39,6 +39,38 @@ object SolveMCFinLP {
 					Edge(3L,1L,(7,1000)),
                                         Edge(2L,3L,(4,1000)),
 					Edge(3L,2L,(4,1000)))			// we assume the links bilateral
+
+                val sedgeRDD: RDD[Edge[(Int,Int)]] = sc.parallelize(sedgeArray)
+                val gs: Graph[(String, Int), (Int, Int)] = Graph(svertexRDD, sedgeRDD)
+*/
+		// --------------------Define the substrate network using nodes and edges------------------------------
+		val svertexArray = Array((1L, ("1", 5)),
+                                         (2L, ("2", 6)),
+                                         (3L, ("3", 8)),
+					 (4L, ("4", 9)),
+					 (5L, ("5", 1)))
+
+		val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
+		val sedgeArray = Array( Edge(1L,2L,(2,1000)),
+                                        Edge(2L,1L,(2,1000)),
+                                        Edge(1L,3L,(7,1000)),
+                                        Edge(3L,1L,(7,1000)),
+					Edge(1L,4L,(3,1000)),
+					Edge(4L,1L,(3,1000)),
+					Edge(1L,5L,(5,1000)),
+					Edge(5L,1L,(5,1000)),
+                                        Edge(2L,3L,(4,1000)),
+                                        Edge(3L,2L,(4,1000)),
+					Edge(2L,4L,(6,1000)),
+					Edge(4L,2L,(6,1000)),
+					Edge(2L,5L,(5,1000)),
+					Edge(5L,2L,(5,1000)),
+					Edge(3L,4L,(1,1000)),
+					Edge(4L,3L,(1,1000)),
+					Edge(3L,5L,(8,1000)),
+					Edge(5L,3L,(8,1000)),
+					Edge(4L,5L,(9,1000)),
+					Edge(5L,4L,(9,1000)))                   // we assume the links bilateral
 
                 val sedgeRDD: RDD[Edge[(Int,Int)]] = sc.parallelize(sedgeArray)
                 val gs: Graph[(String, Int), (Int, Int)] = Graph(svertexRDD, sedgeRDD)
@@ -59,10 +91,10 @@ object SolveMCFinLP {
 		val n = gs.vertices.collect.size			// number of substrate nodes
 		val mm = m*(m-1)					// number of virtual links
 		val nn = n*(n-1)					// number of substrate links
-		val ss = 1						// source substrate: X1
+		val ss = 4//1						// source substrate: X1
 		val sv = 1						// source virtual: Xa
-		val ds = 3						// destination substrate: X4
-		val dv = 2						// destination virtual: Xc
+		val ds = 5//3						// destination substrate: X3
+		val dv = 2						// destination virtual: Xb
 		val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
 		val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)	// define vector b
 		val c =  Array.ofDim[Double](mm*nn)			// define vector c
