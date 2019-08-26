@@ -2,7 +2,7 @@
  *  @author  Mahsa Noroozi
  */
 //---------------------------------------------------------------------------------------------------------------------
-/*  The "SolveMCFinLP" class solves multi commodity flow problems in linear programming using a simplex algorithm.
+/*  The "SolveMCF" class solves multi commodity flow problems in linear programming using a simplex algorithm.
  *  This class uses Graphx to represent a network with nodes and edges.
  *  The constraints of MCF are produced automatically from the nodes and edge capacities.
  *  We assume the graph fully connected.
