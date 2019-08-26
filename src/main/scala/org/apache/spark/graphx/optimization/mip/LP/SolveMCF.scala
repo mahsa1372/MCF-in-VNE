@@ -149,15 +149,21 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                 for (i <- 0 until mm*nn) {
                         print(c(i) + "|")
                 }
+
+		val A = new Matrix(a.length, a(0).length, a)
+		val B = new Vector(b.length, b)
+		val C = new Vector(c.length, c)
+
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
-		def SolveMCFinLP () :Array[Double] ={
-			val lp = new Simplex2(a,b,c)
+		def SolveMCFinLP () :Vector ={
+			val lp = new Simplex(A,B,C)
 			val x = lp.solve()
+			x.Print
 			x
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-			val lp = new Simplex2(a,b,c)
+			val lp = new Simplex(A,B,C)
 			val x = lp.solve()
 			val f = lp.result(x)
 			f
