@@ -31,7 +31,7 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) {
 
 	// ------------------------------Print an element of vector--------------------------------
 	def Print (j: Int) {
-		for (i <- 0 until j) println("v(" + i + ")=" + v(i))
+		for (i <- 0 until j) {if (v(i) > 0.0) println("v(" + i + ")=" + v(i))}
 	}
 
 	// ------------------------------Create a zero-vector-------------------------------------- 
