@@ -222,7 +222,7 @@ object SolveMCFinLP {
 			print(c(i) + "|")
 		}
 		// --------------------Solve the problem using simplex algorithm---------------------------------------
-		val lp = new Simplex2(a,b,c)
+		val lp = new Simplex2(a,b,c, sc=sc)
 		val x = lp.solve()
                 val f = lp.result(x)
 

@@ -43,7 +43,7 @@ import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 
 //class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
-class Simplex2(a: DenseMatrix, b: Vector, c: Vector) {
+class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext) {
 
 	// ------------------------------Initialize the basic variables from input-----------------------------------------------	
 	private val M = a.numRows//a.size						// the number of constraints
@@ -56,7 +56,8 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector) {
 	private val MAX_ITER = 200 * N					// maximum number of iterations
 	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
         //private val ta = Array.ofDim[Double](MM, NN)			// the MM-by-NN simplex tableau
-	private val t: DenseMatrix = new DenseMatrix(MM, NN, Array.ofDim[Double](MM*NN))
+	private var t: DenseMatrix = new DenseMatrix(MM, NN, Array.ofDim[Double](MM*NN))
+	private var tt : RDD[Double] = sc.parallelize(t.values, 20)
 	private var ca = -1						// counter for artificial variables
 	private val x_B = Array.ofDim [Int] (M)				// the basis
 
@@ -145,15 +146,18 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector) {
 		print("pivot: entering = " + l)
 		print(" leaving = " + k)
 		println("")
-		val pivot = t(k, l)
-		for (i <- 0 to lc) t.values((k*NN) + i) = t(k, i) / pivot		// make pivot 1 and update the pivot row
+		tt = sc.parallelize(t.values, 20)
+		val pivot = tt.collect.array((k*NN) + l)
+
+		for (i <- 0 to lc) tt = sc.parallelize(tt.collect.updated((k*NN)+i, tt.collect.array((k*NN)+i) /pivot), 20)	// make pivot 1 and update the pivot row
 		for (i <- 0 to M if i != k) { 
-			val pivotColumn = t(i, l)
+			val pivotColumn = tt.collect.array((i*NN) + l)
 			for (j <- 0 to lc) {
-				t.values((i*NN) + j) = t(i, j) - t(k, j)* pivotColumn// update rest of pivot column to zero
+				tt = sc.parallelize(tt.collect.updated(((i*NN) + j),tt.collect.array((i*NN)+ j) - tt.collect.array((k*NN)+ j)* pivotColumn), 20) // update rest of pivot column to zero
 			}
 		}
 		x_B(k) = l						// update basis
+		t = new DenseMatrix(MM, NN, tt.collect.array)
 	}
 
 	// ------------------------------Remove the artificial variables---------------------------------------------------------

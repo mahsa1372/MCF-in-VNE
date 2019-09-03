@@ -96,7 +96,7 @@ object SolveRandom {
 		val Source = (source_1, source_2)
 		val Destination = (destination_1, destination_2)
 
-                val lp = new SolveMCF(gs, gv, Source, Destination)
+                val lp = new SolveMCF(gs, gv, Source, Destination, sc=sc)
                 val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 

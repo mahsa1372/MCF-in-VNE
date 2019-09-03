@@ -90,7 +90,7 @@ object Solve {
 		val Source = (4, 1)
 		val Destination = (5, 2)
 
-                val lp = new SolveMCF(gs, gv, Source, Destination)
+                val lp = new SolveMCF(gs, gv, Source, Destination, sc=sc)
                 val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 

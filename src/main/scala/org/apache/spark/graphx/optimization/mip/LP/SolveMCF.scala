@@ -23,7 +23,7 @@ import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 
-class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int]) {
+class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) {
 
                 // --------------------Define matrix of constraints and vector of costs--------------------------------
                 val m = gv.vertices.collect.size                        // number of virtual nodes
@@ -166,14 +166,14 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
 		def SolveMCFinLP () :Vector ={
-			val lp = new Simplex2(a,b,c)
+			val lp = new Simplex2(a,b,c, sc=sc)
 			val x = lp.solve()
 //			x.Print
 			x
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-			val lp = new Simplex2(a,b,c)
+			val lp = new Simplex2(a,b,c, sc=sc)
 			val x = lp.solve()
 			val f = lp.result(x)
 			f
