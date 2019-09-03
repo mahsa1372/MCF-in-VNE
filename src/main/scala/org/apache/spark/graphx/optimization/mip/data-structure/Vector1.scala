@@ -15,7 +15,7 @@ import scala.collection.mutable.{IndexedSeq, WrappedArray}
 import scala.util.Sorting.quickSort
 import scala.math.{abs => ABS, max => MAX, sqrt}
 
-class Vector (val dim: Int, protected var v: Array[Double] = null) {
+class Vector1 (val dim: Int, protected var v: Array[Double] = null) {
 
 	// ------------------------------Create a vector of null-----------------------------------
 	if (v == null) {
@@ -35,7 +35,7 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) {
 	}
 
 	// ------------------------------Create a zero-vector-------------------------------------- 
-	def zero (size: Int = dim): Vector = new Vector (size)
+	def zero (size: Int = dim): Vector1 = new Vector1 (size)
 
 	// ------------------------------Get an element of vector----------------------------------
 	def apply (i: Int): Double = v(i)
@@ -61,68 +61,68 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) {
 	}
 
 	// ------------------------------Add two vectors together----------------------------------
-	def + (b: Vector): Vector = {
-		val c = new Vector (dim)
+	def + (b: Vector1): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) + b.v(i)
 		c
 	}
 
 	// ------------------------------Add an element to a vector--------------------------------
-	def + (s: Double): Vector = {
-		val c = new Vector (dim)
+	def + (s: Double): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) + s
 		c
 	}
 
 	// ------------------------------Return negative of an array-------------------------------
-	def unary_- (): Vector = {
-		val c = new Vector (dim)
+	def unary_- (): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = -v(i)
 		c
 	}
 
 	// ------------------------------Subtract two vectors eachother----------------------------
-	def - (b: Vector): Vector = {
-		val c = new Vector (dim)
+	def - (b: Vector1): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) - b(i)
 		c
 	}
 
 	// ------------------------------Subtract an element from a vector-------------------------
-	def - (s: Double): Vector = {
-		val c = new Vector (dim)
+	def - (s: Double): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) - s
 		c
 	}
 
 	// ------------------------------Multiply vector by an element-----------------------------
-	def * (s: Double): Vector = {
-		val c = new Vector (dim)
+	def * (s: Double): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) * s
 		c
 	}
 
 	// ------------------------------Divide vector by an element-------------------------------
-	def / (s: Double): Vector = {
-		val c = new Vector (dim)
+	def / (s: Double): Vector1 = {
+		val c = new Vector1 (dim)
 		for (i <- 0 until dim) c.v(i) = v(i) / s
 		c
 	}
 
 	// ------------------------------Add in-place two vectors together-------------------------
-	def += (b: Vector): Vector = { 
+	def += (b: Vector1): Vector1 = { 
 		for (i <- 0 until dim) v(i) += b.v(i)
 		this 
 	}
 
 	// ------------------------------Subtract in-place two vectors----------------------------- 
-	def -= (b: Vector): Vector = { 
+	def -= (b: Vector1): Vector1 = { 
 		for (i <- 0 until dim) v(i) -= b.v(i)
 		this 
 	}
 
 	// ------------------------------Divide in-place a vector and an element-------------------
-	def /= (d: Double): Vector = { 
+	def /= (d: Double): Vector1 = { 
 		for (i <- 0 until dim) v(i) /= d 
 		this 
 	}
@@ -153,11 +153,11 @@ class Vector (val dim: Int, protected var v: Array[Double] = null) {
 }
 
 
-object Vector {
+object Vector1 {
 
 	// ------------------------------Get a vector form a sequence of numbers-------------------
-	def apply (xs: Seq [Double]): Vector = {
-		val c = new Vector(xs.length)
+	def apply (xs: Seq [Double]): Vector1 = {
+		val c = new Vector1(xs.length)
 		for (i <- 0 until c.dim) c.v(i) = xs(i)
 		c
 	}

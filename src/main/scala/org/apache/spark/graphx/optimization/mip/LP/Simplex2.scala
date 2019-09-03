@@ -33,20 +33,30 @@ package org.apache.spark.graphx.optimization.mip
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
+import org.apache.spark.{SparkContext, SparkConf}
+import org.apache.spark.graphx._
+import org.apache.spark.rdd._
+import org.apache.spark.graphx.lib
+import org.apache.spark.mllib.linalg.{Vector, Vectors}
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.DenseMatrix
+import org.apache.spark.mllib.linalg.Matrices
 
-class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
+//class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
+class Simplex2(a: DenseMatrix, b: Vector, c: Vector) {
 
 	// ------------------------------Initialize the basic variables from input-----------------------------------------------	
-	private val M = a.size						// the number of constraints
-	private val N = a(0).size					// the number of decision variables
-	private val A = countNeg(b)					// the number of artificial variables
+	private val M = a.numRows//a.size						// the number of constraints
+	private val N = a.numCols//a(0).size					// the number of decision variables
+	private val A = b.numNonzeros					// the number of artificial variables
 	private val nA = M + N						// the number of non-artificial variables
 	private val MM = M + 1						// the number of rows in tableau
 	private var NN = nA + A + 1					// the number of columns in tableau
 	private var lc = NN - 1						// the last column: Array b
 	private val MAX_ITER = 200 * N					// maximum number of iterations
 	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
-        private val t = Array.ofDim[Double](MM, NN)			// the MM-by-NN simplex tableau
+        //private val ta = Array.ofDim[Double](MM, NN)			// the MM-by-NN simplex tableau
+	private val t: DenseMatrix = new DenseMatrix(MM, NN, Array.ofDim[Double](MM*NN))
 	private var ca = -1						// counter for artificial variables
 	private val x_B = Array.ofDim [Int] (M)				// the basis
 
@@ -57,12 +67,12 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	// ------------------------------Initialize the tableau------------------------------------------------------------------
 	for (i <- 0 until M) {
 		for (j <- 0 until N) {
-			t(i)(j) = a(i)(j)				// col x: constraint 2-dimension-array a
+			t.values((i*NN) + j) = a(i,j)				// col x: constraint 2-dimension-array a
 		}
 		flag = if (b(i) < 0.0) -1.0 else 1.0
-		t(i)(N + i) = flag					// col y: slack/surplus variable 2-dimension-array s
-		if (flag < 0) { ca += 1; t(i)(nA + ca) = 1.0 }
-		t(i)(lc) = b(i) * flag					// col b: limit/RHS array b
+		t.values((i*NN) + N + i) = flag					// col y: slack/surplus variable 2-dimension-array s
+		if (flag < 0) { ca += 1; t.values((i*NN) + nA + ca) = 1.0 }
+		t.values((i*NN) + lc) = b(i) * flag					// col b: limit/RHS array b
 	}
 
 	// ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
@@ -74,25 +84,25 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 			} else {
 				ca += 1					// add counter
 				x_B(i) = nA + ca			// set basis with artificial variable
-				for (j <- 0 until NN) t(M)(j) += t(i)(j)// make t(M)(nA + j) zero
+				for (j <- 0 until NN) t.values((M*NN) + j) += t.values((i*NN) + j)// make t(M)(nA + j) zero
 			}
 		}
 	}
 
-	// ------------------------------Count the negative members from an array-----------------------------------------------
-	def countNeg(v: Array[Double]): Int = {
-		var count = 0
-		for (i <- 0 until v.size if v(i) < 0.0) count += 1
-		count
+	// ------------------------------Update the special column from a 2-dimension-array--------------------------------------
+	def setCol (col: Int, u: Vector, t: DenseMatrix) { 
+		for (i <- 0 until MM) t.values((i*NN) + col) = u(i) 
 	}
 
-	// ------------------------------Update the special column from a 2-dimension-array--------------------------------------
-	def setCol (col: Int, u: Array[Double], t: Array[Array[Double]]) { 
-		for (i <- 0 until MM) t(i)(col) = u(i) 
+	// ------------------------------Get the special row from a 2-dimension-array--------------------------------------------
+	def getRow (row: Int, t: DenseMatrix): Vector = {
+		val u : Vector = Vectors.dense(Array.ofDim[Double](t.numCols))
+		for (i <- 0 until t.numCols) u.toArray(i) = t(row, i)
+		u
 	}
 
 	// ------------------------------Get the max member of an array----------------------------------------------------------
-	def argmax (e: Int, v: Array [Double]): Int = {
+	def argmax (e: Int, v: Vector): Int = {
 		var j = 0
 		for (i <- 0 until e ) {
 		if (v(i) > v(j)) j = i }
@@ -100,19 +110,19 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	}
 
 	// ------------------------------Get the position of the max member of an array------------------------------------------
-	def argmaxPos (e: Int, v: Array [Double]): Int = {
+	def argmaxPos (e: Int, v: Vector): Int = {
 		val j = argmax (e, v); if (v(j) > 0.0) j else -1
 	}
 
 	// ------------------------------Entering variable selection(pivot column)-----------------------------------------------
 	def entering (): Int = {
-		argmaxPos (N, t(M))					// index of max positive
+		argmaxPos (N, getRow(M, t))				// index of max positive
 	}
 	
 	// ------------------------------Return a special column from a 2-dimension-array----------------------------------------
-	def col (t: Array[Array[Double]], col: Int, from: Int = 0): Array[Double] = {
-		val u = Array.ofDim[Double](t.size)
-		for (i <- from until t.size) u(i-from) = t(i)(col)
+	def col (t: Matrix, col: Int, from: Int = 0): Vector = {
+		val u : Vector = Vectors.dense(Array.ofDim[Double](t.numRows))
+		for (i <- from until t.numRows) u.toArray(i-from) = t(i, col)
 		u
 	}
 
@@ -120,9 +130,9 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	def leaving (l: Int): Int = {
 		val B = col(t,lc)					// updated b column
 		var k  = -1
-		for (i <- 0 until M if t(i)(l) > 0) {			// find the pivot row
+		for (i <- 0 until M if t(i, l) > 0) {			// find the pivot row
 			if (k == -1) k = i
-			else if (B(i) / t(i)(l) <= B(k) / t(k)(l)) {
+			else if (B(i) / t(i, l) <= B(k) / t(k, l)) {
 				k = i					// smaller => reset k
 			}
 		}
@@ -135,12 +145,12 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 		print("pivot: entering = " + l)
 		print(" leaving = " + k)
 		println("")
-		val pivot = t(k)(l)
-		for (i <- 0 to lc) t(k)(i) = t(k)(i) / pivot		// make pivot 1 and update the pivot row
+		val pivot = t(k, l)
+		for (i <- 0 to lc) t.values((k*NN) + i) = t(k, i) / pivot		// make pivot 1 and update the pivot row
 		for (i <- 0 to M if i != k) { 
-			val pivotColumn = t(i)(l)
+			val pivotColumn = t(i, l)
 			for (j <- 0 to lc) {
-				t(i)(j) = t(i)(j) - t(k)(j)* pivotColumn// update rest of pivot column to zero
+				t.values((i*NN) + j) = t(i, j) - t(k, j)* pivotColumn// update rest of pivot column to zero
 			}
 		}
 		x_B(k) = l						// update basis
@@ -153,19 +163,19 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 
 		setCol(lc, col(t, lc + A), t)				// move the b array to the new last column
 		 for (i <- 0 until N) {
-                        t(M)(i) = -c(i)					// set cost row to given cost vector
+                        t.values((M*NN) + i) = -c(i)					// set cost row to given cost vector
                 }
 		for (j <- 0 until N if x_B contains j) { 
 			val pivotRow = argmax (M, col(t, j))		// find the pivot row
-			val pivotCol = t(M)(j)				// find the pivot column
+			val pivotCol = t(M, j)				// find the pivot column
 			for (i <- 0 until NN) {
-				t(M)(i) -= t(pivotRow)(i) * pivotCol	// make cost row 0 in pivot column (j)
+				t.values((M*NN) + i) -= t(pivotRow, i) * pivotCol	// make cost row 0 in pivot column (j)
 			}
 		}
 	}
 
 	// ------------------------------Simplex algorithm-----------------------------------------------------------------------
-	def solve1 () : Array[Double] = {
+	def solve1 () : Vector = {
 		var k = -1						// the leaving variable (row)
                 var l = -1						// the entering variable (column)
 
@@ -180,17 +190,17 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	}
 
 	// ------------------------------Solve the LP minimization problem using two phases--------------------------------------
-	def solve (): Array[Double] = {
-		var x: Array[Double] = null				// the decision variables
+	def solve (): Vector = {
+		var x: Vector = null					// the decision variables
 		var f = Double.PositiveInfinity				// worst possible value for minimization
 
 		if (A > 0) {
 			for (i <- nA until lc) {
-				t(M)(i) = -1.0				// set cost row to remove artificials
+				t.values((M*NN) + i) = -1.0				// set cost row to remove artificials
 			}				
 		} else {
 			for (i <- 0 until N) {
-				t(M)(i) = -c(i)				// set cost row to given cost vector
+				t.values((M*NN) + i) = -c(i)				// set cost row to given cost vector
 			}
 		}
 
@@ -211,16 +221,16 @@ class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 	}
 
 	// ------------------------------Return the solution array x-------------------------------------------------------------
-	def solution: Array[Double] = {
-		val x = Array.ofDim[Double](N)
-		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i)(lc)	// RHS value
-		for (i <- 0 until x.length) {
+	def solution: Vector = {
+		val x : Vector = Vectors.dense(Array.ofDim[Double](N))
+		for (i <- 0 until M if x_B(i) < N) x.toArray(x_B(i)) = t(i, lc)	// RHS value
+		for (i <- 0 until x.size) {
                       println("x(" + i + ")= " + x(i))
                 }
 		x
 	}
 
 	// ------------------------------Return the result-----------------------------------------------------------------------
-	def result (x: Array[Double]): Double = t(M)(lc)		// bottom right cell in tableau
+	def result (x: Vector): Double = t(M, lc)			// bottom right cell in tableau
 
 }

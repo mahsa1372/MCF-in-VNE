@@ -17,7 +17,10 @@ import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
-
+import org.apache.spark.mllib.linalg.{Vector, Vectors}
+import org.apache.spark.mllib.linalg.Matrix
+import org.apache.spark.mllib.linalg.DenseMatrix
+import org.apache.spark.mllib.linalg.Matrices
 
 object SolveNodeMappingLP {
 
@@ -61,32 +64,35 @@ object SolveNodeMappingLP {
 		// --------------------Define matrix of constraints and vector of costs--------------------------------
 		val m = gv.vertices.collect.size			// number of virtual nodes
 		val n = gs.vertices.collect.size			// number of substrate nodes
-		val a = Array.ofDim[Double](m+m+n , m*n)		// define matrix a with constraints
-		val b = Array.fill[Double](m+m+n)(1.0)			// define vector b
+//		val a = Array.ofDim[Double](m+m+n , m*n)		// define matrix a with constraints
+		val a : DenseMatrix = new DenseMatrix(m+m+n, m*n, Array.ofDim[Double]((m+m+n)*(m*n)))
+//		val b = Array.fill[Double](m+m+n)(1.0)			// define vector b
+		val b: Vector = Vectors.dense(Array.fill[Double](m+m+m)(1.0))
 		for (i <- 0 until m) {
-			b(2*i + 1) = -1.0				// set vector b
+			b.toArray(2*i + 1) = -1.0				// set vector b
 		}
 
-		val c =  Array.ofDim[Double](m*n)			// define vector c
+//		val c =  Array.ofDim[Double](m*n)			// define vector c
+		val c: Vector = Vectors.dense(Array.ofDim[Double](m*n))
 		var ssorted = gs.vertices.collect.sortBy(x => (x._1, -x._2._2))
 		for (i <- 0 until m) {
 			for (j <- 0 until n) {
-				c(n*i+j) = ssorted(i)._2._2		// set vector c
+				c.toArray(n*i+j) = ssorted(i)._2._2		// set vector c
 			}
 		}
 
 		var k = 0
 		for (i <- 0 until m) {
 			for (j <- 0 until n) {
-				a(2*i)(k) = 1.0
-				a(2*i+1)(k) = 1.0			// set matrix a for first rows
+				a.values(((2*i)*m*n) + k) = 1.0
+				a.values(((2*i+1)*m*n) + k) = 1.0			// set matrix a for first rows
 				k = k + 1
 			}
 		}							// x[1][a]+x[2][a]+x[3][a]=1
 
 		for (i <- 0 until n) {
 			for (j <- 0 until m) {
-				a(i+m+m)((n*j)+i) = 1.0			// set matrix a for second rows
+				a.values(((i+m+m)*m*n) + (n*j)+i) = 1.0			// set matrix a for second rows
 			}
 		}							// x[1][a]+x[1][b]<=1
 

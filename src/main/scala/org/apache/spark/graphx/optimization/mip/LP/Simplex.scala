@@ -34,7 +34,7 @@ package org.apache.spark.graphx.optimization.mip
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
 
-class Simplex (a: Matrix, b: Vector, c: Vector) {
+class Simplex (a: Matrix1, b: Vector1, c: Vector1) {
 	
 	// ------------------------------Initialize the basic variables from input-----------------------------------------------
 	private val M = a.dim1						// the number of constraints
@@ -46,7 +46,7 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 	private var lc = NN - 1						// the last column: Vector b
 	private val MAX_ITER = 200 * N					// maximum number of iterations
 	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
-        private val t = new Matrix(MM, NN)                              // the MM-by-NN simplex tableau
+        private val t = new Matrix1(MM, NN)                              // the MM-by-NN simplex tableau
         private var ca = -1                                             // counter for artificial variables
 	private val x_B = Array.ofDim [Int] (M)				// the basis
 
@@ -127,7 +127,7 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 	}
 
 	// ------------------------------Simplex algorithm-----------------------------------------------------------------------
-	def solve1 () : Vector = {
+	def solve1 () : Vector1 = {
 		var k = -1						// the leaving variable (row)
                 var l = -1						// the entering variable (column)
 
@@ -142,8 +142,8 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 	}
 
 	// ------------------------------Solve the LP minimization problem using two phases--------------------------------------
-	def solve (): Vector = {
-		var x: Vector = null					// the decision variables
+	def solve (): Vector1 = {
+		var x: Vector1 = null					// the decision variables
 		var f = Double.PositiveInfinity				// worst possible value for minimization
 
 		if (A > 0) {
@@ -173,14 +173,14 @@ class Simplex (a: Matrix, b: Vector, c: Vector) {
 	}
 
 	// ------------------------------Return the solution vector x------------------------------------------------------------
-	def solution: Vector = {
-		val x = new Vector(N)
+	def solution: Vector1 = {
+		val x = new Vector1(N)
 		for (i <- 0 until M if x_B(i) < N) x(x_B(i)) = t(i, lc)	// RHS value
 		x.Print(N)
 		x
 	}
 
 	// ------------------------------Return the result-----------------------------------------------------------------------
-	def result (x: Vector): Double = t(M, lc)			// bottom right cell in tableau
+	def result (x: Vector1): Double = t(M, lc)			// bottom right cell in tableau
 
 }
