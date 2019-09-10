@@ -35,13 +35,13 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 		val ds = Destination._1					// destination substrate: X3
                 val dv = Destination._2					// destination virtual: Xb
 //                val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
-		val a : DenseMatrix = new DenseMatrix((mm*n)+(4*(m-1))+nn, mm*nn, Array.ofDim[Double](((mm*n)+(4*(m-1))+nn)*(mm*nn)))
+		val a : DenseMatrix = new DenseMatrix((mm*n)+(4*(m-1))+nn, mm*nn, Array.ofDim[Double](((mm*n)+(4*(m-1))+nn)*(mm*nn)), true)
 //                val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)        // define vector b
 		val b : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+(4*(m-1))+nn))
 //                val c =  Array.ofDim[Double](mm*nn)                     // define vector c
 		val c : Vector = Vectors.dense(Array.ofDim[Double](mm*nn))
 //                val aa = Array.ofDim[Double]((mm*n)+nn , mm*nn)
-		val aa : DenseMatrix = new DenseMatrix((mm*n)+nn, mm*nn, Array.ofDim[Double](((mm*n)+nn)*(mm*nn)))
+		val aa : DenseMatrix = new DenseMatrix((mm*n)+nn, mm*nn, Array.ofDim[Double](((mm*n)+nn)*(mm*nn)), true)
 //                val bb = Array.ofDim[Double]((mm*n)+nn)
 		val bb : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+nn))
                 val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => (srcId, attr1, dstId)}
@@ -142,16 +142,19 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                 c.toArray(k+((i-1)*nn)) = look(k)._2
                         }
                 }
-
+		
+		println("A:")
                 for (i <- 0 until (mm*n)+(4*(m-1))+nn) {
                         for (j <- 0 until mm*nn) {
                                 print(a(i, j) + "|")
                         }
                         println("")
                 }
+		println("B:")
                 for (i <- 0 until (mm*n)+(4*(m-1))+nn) {
                         print(b(i) + "|")
                 }
+		println("C:")
                 for (i <- 0 until mm*nn) {
                         print(c(i) + "|")
                 }

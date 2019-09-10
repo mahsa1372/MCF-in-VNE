@@ -29,11 +29,11 @@ object SolveRandom {
 
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 25
+		val r = 3
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
-			svertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(100)))
+			svertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))
 		}
 
 		val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
@@ -44,7 +44,7 @@ object SolveRandom {
 			for (j <- i to r) {
 				if (i == j) {}
 				else {
-					var m = s.nextInt(50)
+					var m = s.nextInt(10)
 					sedgeArray(number) = Edge(i.toLong, j.toLong, (m, 1000))
 					number += 1
 					sedgeArray(number) = Edge(j.toLong, i.toLong, (m, 1000))
@@ -58,10 +58,10 @@ object SolveRandom {
 
                 // --------------------Define the virtual network using nodes and edges--------------------------------
 //		val rr = scala.util.Random.nextInt(r)
-		val rr = 10
+		val rr = 2
 		var vvertexArray = Array.ofDim [(Long, (String, Int))] (rr)
 		for (i <- 1 to rr) {
-                        vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(100)))
+                        vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))
                 }
 
                 val vvertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(vvertexArray)
@@ -72,7 +72,7 @@ object SolveRandom {
                         for (j <- i to rr) {
                                 if (i == j) {}
                                 else {
-                                        var mm = s.nextInt(50)
+                                        var mm = s.nextInt(10)
                                         vedgeArray(numberv) = Edge(i.toLong, j.toLong, (mm, 1000))
                                         numberv += 1
                                         vedgeArray(numberv) = Edge(j.toLong, i.toLong, (mm, 1000))
@@ -103,6 +103,8 @@ object SolveRandom {
                 println("Optimal Solution = " + f)
 		println("substrate nodes:" + r)
 		println("virtual nodes:" + rr)
+		println("source:" + source_1 + source_2)
+		println("destination:" + destination_1 + destination_2)
         }
 }
 
