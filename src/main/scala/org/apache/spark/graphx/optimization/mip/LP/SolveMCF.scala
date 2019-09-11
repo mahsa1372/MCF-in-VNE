@@ -142,7 +142,7 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                 c.toArray(k+((i-1)*nn)) = look(k)._2
                         }
                 }
-		
+/*		
 		println("A:")
                 for (i <- 0 until (mm*n)+(4*(m-1))+nn) {
                         for (j <- 0 until mm*nn) {
@@ -158,7 +158,7 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                 for (i <- 0 until mm*nn) {
                         print(c(i) + "|")
                 }
-
+*/
 //		val A = new Matrix(a.length, a(0).length, a)
 //		val B = new Vector(b.length, b)
 //		val C = new Vector(c.length, c)
@@ -168,17 +168,18 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 //		val C = sc.parallelize(c)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
+		val lp = new Simplex2(a,b,c, sc=sc)
 		def SolveMCFinLP () :Vector ={
-			val lp = new Simplex2(a,b,c, sc=sc)
+//			val lp = new Simplex2(a,b,c, sc=sc)
 			val x = lp.solve()
 //			x.Print
 			x
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-			val lp = new Simplex2(a,b,c, sc=sc)
-			val x = lp.solve()
-			val f = lp.result(x)
+//			val lp = new Simplex2(a,b,c, sc=sc)
+//			val x = lp.solve()
+			val f = lp.result(lp.solve())
 			f
 		}
 

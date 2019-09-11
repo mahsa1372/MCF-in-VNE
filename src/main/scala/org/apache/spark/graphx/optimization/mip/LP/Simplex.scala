@@ -114,7 +114,8 @@ class Simplex (a: Matrix1, b: Vector1, c: Vector1) {
 		NN -= A							// reduce the width of the tableau
 		lc -= A							// reset the index of the last column
 		t.setCol(lc, t.col(lc + A))				// move the b vector to the new last column
-		 for (i <- 0 until N) {
+
+		for (i <- 0 until N) {
                         t(M, i) = -c(i)					// set cost row to given cost vector
                 }
 		for (j <- 0 until N if x_B contains j) { 
@@ -136,6 +137,7 @@ class Simplex (a: Matrix1, b: Vector1, c: Vector1) {
                                 l = entering; if (l == -1) break	// -1 : optimal solution found
                                 k = leaving (l); if (k == -1) break	// -1 : solution is unbounded
                                 update (k, l)				// update: k leaves and l enters
+				t.Print
                         }
                 }
                 solution						// return the solution vector x
@@ -164,6 +166,7 @@ class Simplex (a: Matrix1, b: Vector1, c: Vector1) {
 			f = result (x)
 			println ("solve:  Phase I solution x = " + x + ", f = " + f)
 			removeA ()
+			t.Print
 		}
 		
 		println ("solve: Phase II: ")

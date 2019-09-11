@@ -46,9 +46,9 @@ import org.apache.spark.mllib.linalg.Matrices
 class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext) {
 
 	// ------------------------------Initialize the basic variables from input-----------------------------------------------	
-	private val M = a.numRows//a.size						// the number of constraints
-	private val N = a.numCols//a(0).size					// the number of decision variables
-	private val A = b.numNonzeros					// the number of artificial variables
+	private val M = a.numRows//a.size				// the number of constraints
+	private val N = a.numCols//a(0).size				// the number of decision variables
+	private val A = countNeg(b)					// the number of artificial variables
 	private val nA = M + N						// the number of non-artificial variables
 	private val MM = M + 1						// the number of rows in tableau
 	private var NN = nA + A + 1					// the number of columns in tableau
@@ -57,7 +57,7 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
         //private val ta = Array.ofDim[Double](MM, NN)			// the MM-by-NN simplex tableau
 	private var t: DenseMatrix = new DenseMatrix(MM, NN, Array.ofDim[Double](MM*NN), true)
-//	private var tt : RDD[Double] = sc.parallelize(t.values, 20)
+	private var tt : RDD[Double] = sc.parallelize(t.values,8).cache()
 	private var ca = -1						// counter for artificial variables
 	private val x_B = Array.ofDim [Int] (M)				// the basis
 
@@ -90,9 +90,16 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 		}
 	}
 
+	// ------------------------------Count the negative memebers in vector--------------------------------------------------
+	def countNeg (v: Vector): Int = {
+		var count = 0
+		for (i <- 0 until v.size if v(i) < 0.0) count += 1
+		count
+	}
+
 	// ------------------------------Update the special column from a 2-dimension-array--------------------------------------
 	def setCol (col: Int, u: Vector, t: DenseMatrix) { 
-		for (i <- 0 until MM) t.values((i*NN) + col) = u(i) 
+		for (i <- 0 until t.numRows) t.values((i*t.numCols) + col) = u(i) 
 	}
 
 	// ------------------------------Get the special row from a 2-dimension-array--------------------------------------------
@@ -145,22 +152,24 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 	def update (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		print(" leaving = " + k)
-		println("")
-//		tt = sc.parallelize(t.values, 20)
-//		val pivot = tt.collect.array((k*NN) + l)
-		val pivot = t(k,l)
-//		for (i <- 0 to lc) tt = sc.parallelize(tt.collect.updated((k*NN)+i, tt.collect.array((k*NN)+i) /pivot), 20)	// make pivot 1 and update the pivot row
-		for (i <- 0 to lc) t.values((k*NN) + i) = t(k, i) / pivot
+		println("----------------------------------------------------------------------------------------------------------------")
+		tt = sc.parallelize(t.values,8).cache()
+		val pivot = tt.collect.array((k*t.numCols) + l)
+//		val pivot = t(k,l)
+		for (i <- 0 to lc) tt = sc.parallelize(tt.collect.updated((k*t.numCols)+i, tt.collect.array((k*t.numCols)+i) /pivot),8).cache()	// make pivot 1 and update the pivot row
+//		for (i <- 0 to lc) t.values((k*t.numCols) + i) = t(k, i) / pivot
 		for (i <- 0 to M if i != k) { 
-//			val pivotColumn = tt.collect.array((i*NN) + l)
-			val pivotColumn = t(i, l)
+			val pivotColumn = tt.collect.array((i*t.numCols) + l)
+//			val pivotColumn = t(i, l)
 			for (j <- 0 to lc) {
-				t.values((i*NN) + j) = t(i, j) - t(k, j)* pivotColumn
-//				tt = sc.parallelize(tt.collect.updated(((i*NN) + j),tt.collect.array((i*NN)+ j) - tt.collect.array((k*NN)+ j)* pivotColumn), 20) // update rest of pivot column to zero
+//				t.values((i*t.numCols) + j) = t(i, j) - t(k, j)* pivotColumn
+				tt = sc.parallelize(tt.collect.updated(((i*t.numCols) + j),tt.collect.array((i*t.numCols)+ j) - tt.collect.array((k*t.numCols)+ j)* pivotColumn),8).cache() // update rest of pivot column to zero
 			}
 		}
 		x_B(k) = l						// update basis
-//		t = new DenseMatrix(MM, NN, tt.collect.array)
+		t = new DenseMatrix(t.numRows, t.numCols, tt.collect.array, true)
+		tt.collect
+		tt.unpersist()
 	}
 
 	// ------------------------------Remove the artificial variables---------------------------------------------------------
@@ -169,14 +178,15 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 		lc -= A							// reset the index of the last column
 
 		setCol(lc, col(t, lc + A), t)				// move the b array to the new last column
-		 for (i <- 0 until N) {
-                        t.values((M*NN) + i) = -c(i)					// set cost row to given cost vector
+
+		for (i <- 0 until N) {
+                        t.values((M*t.numCols) + i) = (-1.0 * c(i))	// set cost row to given cost vector
                 }
 		for (j <- 0 until N if x_B contains j) { 
 			val pivotRow = argmax (M, col(t, j))		// find the pivot row
 			val pivotCol = t(M, j)				// find the pivot column
-			for (i <- 0 until NN) {
-				t.values((M*NN) + i) -= t(pivotRow, i) * pivotCol	// make cost row 0 in pivot column (j)
+			for (i <- 0 until t.numCols) {
+				t.values((M*t.numCols) + i) = t(M, i) - (t(pivotRow, i) * pivotCol)	// make cost row 0 in pivot column (j)
 			}
 		}
 	}
@@ -191,13 +201,6 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
                                 l = entering (); if (l == -1) break	// -1 : optimal solution found
                                 k = leaving (l); if (k == -1) break	// -1 : solution is unbounded
                                 update (k, l)				// update: k leaves and l enters
-/*				for (i <- 0 until MM) {
-		                        for (j <- 0 until NN) {
-				                print(t(i, j) + "|")
-					}
-					println("")
-				}
-*/
                         }
                 }
                 solution						// return the solution array x
@@ -227,12 +230,6 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 			println ("solve:  Phase I solution x = " + x + ", f = " + f)
 			removeA ()
 		}
-		for (i <- 0 until MM) {
-			for (j <- 0 until NN) {
-                                                print(t(i, j) + "|")
-                                        }
-                                        println("")
-                                }
 		
 		println ("solve: Phase II: ")
 		x = solve1 ()
@@ -245,7 +242,7 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 		val x : Vector = Vectors.dense(Array.ofDim[Double](N))
 		for (i <- 0 until M if x_B(i) < N) x.toArray(x_B(i)) = t(i, lc)	// RHS value
 		for (i <- 0 until x.size) {
-			println("x(" + i + ")= " + x(i))
+			if (x(i) > 0.0) println("x(" + i + ")= " + x(i))
                 }
 		x
 	}

@@ -97,7 +97,7 @@ object SolveRandom {
 		val Destination = (destination_1, destination_2)
 
                 val lp = new SolveMCF(gs, gv, Source, Destination, sc=sc)
-                val x = lp.SolveMCFinLP()
+//                val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 
                 println("Optimal Solution = " + f)
@@ -105,6 +105,10 @@ object SolveRandom {
 		println("virtual nodes:" + rr)
 		println("source:" + source_1 + source_2)
 		println("destination:" + destination_1 + destination_2)
+		gs.vertices.collect.foreach(println(_))
+		gs.edges.collect.foreach(println(_))
+		gv.vertices.collect.foreach(println(_))
+		gv.edges.collect.foreach(println(_))
         }
 }
 
