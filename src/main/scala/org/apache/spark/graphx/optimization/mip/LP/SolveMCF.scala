@@ -11,6 +11,8 @@
 //---------------------------------------------------------------------------------------------------------------------
 package org.apache.spark.graphx.optimization.mip
 
+import java.io.File
+import java.io.PrintWriter
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
 
@@ -41,10 +43,13 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 //                val c =  Array.ofDim[Double](mm*nn)                     // define vector c
 		val c : Vector = Vectors.dense(Array.ofDim[Double](mm*nn))
 //                val aa = Array.ofDim[Double]((mm*n)+nn , mm*nn)
-		val aa : DenseMatrix = new DenseMatrix((mm*n)+nn, mm*nn, Array.ofDim[Double](((mm*n)+nn)*(mm*nn)), true)
+//		val aa : DenseMatrix = new DenseMatrix((mm*n)+nn, mm*nn, Array.ofDim[Double](((mm*n)+nn)*(mm*nn)), true)
 //                val bb = Array.ofDim[Double]((mm*n)+nn)
-		val bb : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+nn))
+//		val bb : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+nn))
                 val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => (srcId, attr1, dstId)}
+
+		val file_Object = new File("abc.xlsx")
+		val print_Writer = new PrintWriter(file_Object)
 
                 var number = 0
                 var numberOfVLinks = 0
@@ -56,9 +61,9 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                 for (j <- 1 until n+1) {
                                         if (i == j) jjjj += 1
                                         else {
-                                                aa.values((number*mm*nn) + (nn*(numberOfVLinks-1)) + (((i-1)*(n-1))+jjj) -1) = 1.0
+                                                a.values((number*mm*nn) + (nn*(numberOfVLinks-1)) + (((i-1)*(n-1))+jjj) -1) = 1.0
                                                 var iii = j
-                                                aa.values((number*mm*nn) + (nn*(numberOfVLinks-1)) + (((iii-1)*(n-1))+jjjj) -1) = -1.0
+                                                a.values((number*mm*nn) + (nn*(numberOfVLinks-1)) + (((iii-1)*(n-1))+jjjj) -1) = -1.0
                                                 jjj += 1
                                         }
                                 }
@@ -69,9 +74,9 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                         for (k <- 1 until m+1) {
                                                 if (sv == k) {}
                                                 else {
-                                                        if ( numberOfVLinks == ((sv-1)*(m-1)+kkk)) bb.toArray(number) = 1.0
+                                                        if ( numberOfVLinks == ((sv-1)*(m-1)+kkk)) b.toArray(number) = 1.0
                                                         var lll = k
-                                                        if ( numberOfVLinks == ((lll-1)*(m-1)+kkkk)) bb.toArray(number) = -1.0
+                                                        if ( numberOfVLinks == ((lll-1)*(m-1)+kkkk)) b.toArray(number) = -1.0
                                                         kkk += 1
                                                 }
                                         }
@@ -82,9 +87,9 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                         for (k <- 1 until m+1) {
                                                 if (dv == k) {}
                                                 else {
-                                                        if( numberOfVLinks == ((dv-1)*(m-1)+kkk)) bb.toArray(number) = 1.0
+                                                        if( numberOfVLinks == ((dv-1)*(m-1)+kkk)) b.toArray(number) = 1.0
                                                         var lll = k
-                                                        if( numberOfVLinks == ((lll-1)*(m-1)+kkkk)) bb.toArray(number) = -1.0
+                                                        if( numberOfVLinks == ((lll-1)*(m-1)+kkkk)) b.toArray(number) = -1.0
                                                         kkk += 1
                                                 }
                                         }
@@ -92,6 +97,34 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                 number += 1
                         }
                 }
+
+		var numbern = mm*n
+                for (i <- 0 until mm*n) {
+                        if (b(i) == 1.0) {
+                                for (j <- 0 until mm*nn) {
+                                        a.values((numbern*mm*nn) + j) = a(i , j)
+                                        b.toArray(numbern) = -b(i)
+                                }
+                                numbern += 1
+                        }
+                        else if (b(i) == -1.0) {
+                                for (j <- 0 until mm*nn) {
+                                        if (a(i, j) == 0) {
+						a.values((i*mm*nn) + j) = a(i , j)
+						a.values((numbern*mm*nn) + j) = a(i , j)
+					}
+                                        else {
+						a.values((i*mm*nn) + j) = -a(i , j)
+						a.values((numbern*mm*nn) + j) = a(i, j)
+					}
+                                        b.toArray(i) = 1.0
+                                        b.toArray(numbern) = -b(i)
+                                }
+                                numbern += 1
+                        }
+                        else { }
+                }
+/*
                 var numbern = 0
                 for (i <- 0 until mm*n) {
                         if (bb(i) == 1.0) {
@@ -128,6 +161,7 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                                 numbern += 1
                         }
                 }
+*/
                 var numbernn = (n*mm)+(4*(m-1))
                 for (i <- 1 until nn+1) {
                         for (j <- 1 until mm+1) {
@@ -140,6 +174,8 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                 for (i <- 1 until mm+1) {
                         for (k <- 0 until look.size) {
                                 c.toArray(k+((i-1)*nn)) = look(k)._2
+		                print_Writer.print(c.toArray(k+((i-1)*nn)) + "\t")
+
                         }
                 }
 /*		
@@ -166,6 +202,11 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 //		val A = sc.parallelize(a)
 //		val B = sc.parallelize(b)
 //		val C = sc.parallelize(c)
+
+//                print_Writer.write(a)
+//                print_Writer.write(b)
+//                print_Writer.print(c.toArray(0))
+		print_Writer.close()
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
 		val lp = new Simplex2(a,b,c, sc=sc)

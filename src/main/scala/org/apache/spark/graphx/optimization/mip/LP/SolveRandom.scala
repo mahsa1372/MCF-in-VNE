@@ -29,7 +29,7 @@ object SolveRandom {
 
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 3
+		val r = 10
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -58,7 +58,7 @@ object SolveRandom {
 
                 // --------------------Define the virtual network using nodes and edges--------------------------------
 //		val rr = scala.util.Random.nextInt(r)
-		val rr = 2
+		val rr = 5
 		var vvertexArray = Array.ofDim [(Long, (String, Int))] (rr)
 		for (i <- 1 to rr) {
                         vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))
@@ -96,7 +96,7 @@ object SolveRandom {
 		val Source = (source_1, source_2)
 		val Destination = (destination_1, destination_2)
 
-                val lp = new SolveMCF(gs, gv, Source, Destination, sc=sc)
+                val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
 //                val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 
