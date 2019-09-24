@@ -141,15 +141,16 @@ class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @
 		println(" leaving = " + k)
 		println("Update")
 		val pivot = t(k)(l)
-//		for (i <- 0 to lc) t(k)(i) = t(k)(i) / pivot		// make pivot 1 and update the pivot row
-		t(k) = sc.parallelize(t.transpose(s => s), 2).map(Vectors.dense(_)).map(s => s(k)/pivot).collect
-		println("First Parallelize")
+		for (i <- 0 to lc) t(k)(i) = t(k)(i) / pivot		// make pivot 1 and update the pivot row
+//		t(k) = sc.parallelize(t.transpose(s => s)).map(Vectors.dense(_)).map(s => s(k)/pivot).collect
+//		val test = sc.parallelize(t.transpose(s => s), 8).map(Vectors.dense(_))
 		for (i <- 0 to M if i != k) { 
 			val pivotColumn = t(i)(l)
-			t(i) = sc.parallelize(t.transpose(s => s), 2).map(Vectors.dense(_)).map(s => s(i)-s(k)*pivotColumn).collect
-//				t(i)(j) =t(i)(j) - t(k)(j)* pivotColumn // update rest of pivot column to zero
+//			t(i) = sc.parallelize(t.transpose(s => s)).map(s => s(i) - s(k)*pivotColumn).collect
+			for (j <- 0 to lc) {
+				t(i)(j) = t(i)(j) - t(k)(j)* pivotColumn // update rest of pivot column to zero
+			}
 		}
-		println("Second Parallelize")
 		x_B(k) = l						// update basis
 	}
 
@@ -181,6 +182,12 @@ class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @
                                 l = entering; if (l == -1) break	// -1 : optimal solution found
                                 k = leaving (l); if (k == -1) break	// -1 : solution is unbounded
                                 update (k, l)				// update: k leaves and l enters
+				for (i <- 0 until t.size) {
+					for (j <- 0 until t(0).size) {
+						print(t(i)(j) + "|")
+					}
+					println("")
+				}
                         }
                 }
                 solution						// return the solution vector x
@@ -205,6 +212,14 @@ class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @
 
 		if (A > 0) {
 			println ("solve:  Phase I: ")
+			
+			for (i <- 0 until t.size) {
+				for (j <- 0 until t(0).size) {
+					print(t(i)(j) + "|")
+				}
+				println("")
+			}
+
 			x = solve1 ()					// solve the Phase I problem
 			f = result (x)
 			println ("solve:  Phase I solution x = " + x + ", f = " + f)
@@ -212,6 +227,13 @@ class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @
 		}
 		
 		println ("solve: Phase II: ")
+		for (i <- 0 until t.size) {
+			for (j <- 0 until t(0).size) {
+				print(t(i)(j) + "|")
+			}
+			println("")
+		}
+
 		x = solve1 ()						// solve the Phase II problem
 		f = result (x)
 		x

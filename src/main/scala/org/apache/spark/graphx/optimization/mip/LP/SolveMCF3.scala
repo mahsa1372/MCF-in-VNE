@@ -136,8 +136,12 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                         }
                 }
 
+		val rows: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
+		val C: DVector = sc.parallelize(c).glom.map(new DenseVector(_))
+		val B: DenseVector = new DenseVector(b)
+
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
-		val lp = new SimplexRDD(a, b, c, sc=sc)
+		val lp = new SimplexReduction(rows, B, C, sc=sc)
 		def SolveMCFinLP () :Array[Double] ={
 			val x = lp.solve()
 			x

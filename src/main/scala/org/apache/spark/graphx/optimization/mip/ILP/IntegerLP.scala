@@ -85,7 +85,7 @@ class IntegerLP (a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkConte
 				println ("x_" + j + " <= " + x_le(j))
 				val n = oneAt (j, c)
 				for (i <- 0 until n.size) {
-					aa.values((k*aa.numCols) + i) = n(i) // add row to constraint matrix
+					aa.values(((k-1)*aa.numCols) + i) = n(i) // add row to constraint matrix
 					k += 1
 				}
 				for (i <- 0 until bb.size) bb.toArray(i) = bb(i) + x_le(j) // add element to limit vector
@@ -95,7 +95,7 @@ class IntegerLP (a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkConte
 				println ("x_" + j + " >= " + x_ge(j))
 				val n = oneAt (j, c)
 				for (i <- 0 until n.size) {
-					aa.values((k*aa.numCols) + i) = n(i) // add row to constraint matrix
+					aa.values(((k-1)*aa.numCols) + i) = n(i) // add row to constraint matrix
 					k += 1
 				}
 				for (i <- 0 until bb.size) bb.toArray(i) = bb(i) + -x_ge(j) // add element to limit vector
@@ -111,9 +111,16 @@ class IntegerLP (a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkConte
 
 	def solve (dp: Int, cons: Constraints) {
 		val MAX_DEPTH = 4 * N                         // limit on depth of recursion  FIX ??
-		val lp = new Simplex2 (cons._1, cons._2, c, sc)   // set up a new LP problem
-		val x  = lp.solve ()                          // optimal primal solution vector for this LP
-		val f  = lp.result (x)                        // optimal objective function value for this LP
+		val test = Array.ofDim[Double](cons._1.numRows, cons._1.numCols)
+		for (i <- 0 to cons._1.numRows-1) {
+			for (j <- 0 to cons._1.numCols-1) {
+				test(i)(j) = cons._1(i,j)
+			}
+		}
+		val lp = new SimplexRDD (test, cons._2.toArray, c.toArray, sc)   // set up a new LP problem
+		val y  = lp.solve ()                          // optimal primal solution vector for this LP
+		val f  = lp.result (y)                        // optimal objective function value for this LP
+		val x : Vector = Vectors.dense(y) 
 		val j = fractionalVar (x)                     // find j such that x_j is not an integer
 		var bound = 0.0
 
