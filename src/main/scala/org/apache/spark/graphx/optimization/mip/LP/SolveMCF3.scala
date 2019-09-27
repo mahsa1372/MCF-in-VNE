@@ -138,19 +138,19 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                         }
                 }
 
-		val rows: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
+		val A: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
 		val C: DenseVector = new DenseVector(c)
 		val B: DenseVector = new DenseVector(b)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
-		val lp = new SimplexReduction(rows, B, C, sc=sc)
+		val lp = new SimplexReduction(A, B, C, sc=sc)
 		def SolveMCFinLP () :Array[Double] ={
 			val x = lp.solve()
 			x
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-			val f = lp.result()
+			val f = lp.result(lp.solve())
 			f
 		}
 

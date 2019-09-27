@@ -191,9 +191,9 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 
 	def leaving (l: Int): Int = {
 		var k = -1
-		for (i <- 0 until M if aa.take(i).last(l) > 0) {
+		for (i <- 0 until M if aa.take(i+1).last(l) > 0) {
 			if (k == -1) k = i
-			else if (B(i) / aa.take(i).last(l) <= B(k) / aa.take(k).last(l)) {
+			else if (B(i) / aa.take(i+1).last(l) <= B(k) / aa.take(k+1).last(l)) {
 				k = i
 			}
 		}
@@ -227,7 +227,6 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	def update (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		println("Update")
 		val pivot = aa.take(k+1).last(l)
 		val newPivotRow = div(aa.take(k+1).last,pivot)
 		B.toArray(k) = B(k) / pivot
@@ -239,7 +238,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 		}
 		val pivotColumn = C(l)
 		for (j <- 0 until N) {
-			C.toArray(j) = C(j) - a.take(k).last(j)* pivotColumn // update rest of pivot column to zero
+			C.toArray(j) = C(j) - aa.take(k+1).last(j)* pivotColumn // update rest of pivot column to zero
 		}
 		F = F - B(k) * pivotColumn
 		x_B(k) = l
@@ -262,6 +261,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 //	}
 
 	def removeA () {
+		println("Function: RemoveArtificials")
 		for (i <- 0 until N) {
 			C.toArray(i) = -c(i)
 		}
@@ -278,6 +278,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	}
         // ------------------------------Simplex algorithm-----------------------------------------------------------------------
         def solve1 () : Array[Double] = {
+		println("Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
 
@@ -286,6 +287,11 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
                                 l = entering; if (l == -1) break        // -1 : optimal solution found
                                 k = leaving (l); if (k == -1) break     // -1 : solution is unbounded
                                 update (k, l)                           // update: k leaves and l enters
+//				aa.collect.foreach(println(_))
+//				for (i <- 0 until M) print(B(i) + "|")
+//				println("")
+//				for (i <- 0 until N) print(C(i) + "|")
+//				println("F:" + F)
                         }
                 }
                 solution                                                // return the solution vector x
@@ -295,6 +301,8 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
         def solve (): Array[Double] = {
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
+
+//		aa.collect.foreach(println(_))
 
                 if (A > 0) { }
                 else {
@@ -306,14 +314,15 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
                 if (A > 0) {
                         println ("solve:  Phase I: ")
                         x = solve1 ()                                   // solve the Phase I problem
-                        f = result ()
-                        println ("solve:  Phase I solution x = " + x + ", f = " + f)
+                        f = result (x)
+//                      println ("solve:  Phase I solution x = " + x + ", f = " + f)
                         removeA ()
                 }
 
                 println ("solve: Phase II: ")
                 x = solve1 ()                                           // solve the Phase II problem
-                f = result ()
+                f = result (x)
+		println("F:" + F)
                 x
         }
 
@@ -330,7 +339,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
         // ------------------------------Return the result-----------------------------------------------------------------------
 //	def result (x: Array[Double]): Double = C(N)                        // bottom right cell in tableau
 
-	def result (): Double = F
+	def result (x: Array[Double]): Double = F
 }
 
 
