@@ -41,6 +41,10 @@ import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 import org.apache.spark.graphx.optimization.mip.VectorSpace._
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.dif
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.div
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.sum
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.mul
 
 class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) {
 
@@ -66,8 +70,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var aa : DMatrix = sc.parallelize(Array.ofDim[Double](M,N)).map(Vectors.dense(_))
-	aa = a
+	private var aa : DMatrix = a
 	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
 	private var pivotColumn = Array.ofDim[Double](M)
 //	for (i <- 0 until M) {
@@ -124,7 +127,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
                 for (i <- 0 until v.size if v(i) < 0.0) count += 1
                 count
         }
-
+/*
 	def sum(a: Vector, b: Vector) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
@@ -148,7 +151,7 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 		for (i <- 0 until c.size) c.toArray(i) = a(i) / b
 		c
 	}
-
+*/
         // ------------------------------Find the index of maximum element-------------------------
 	def argmax (v: Array [Double]): Int = {
 		var j = 0
@@ -233,12 +236,12 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 		val pivot = aa.take(k+1).last(l)
 		val newPivotRow = div(aa.take(k+1).last,pivot)
 		B.toArray(k) = B(k) / pivot
-		println("First Parallelize")
-		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
-		println("Second Parallelize")
 		pivotColumn(k) = 1.0
+		aa.cache()
+		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
+		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
 		for (i <- 0 until M if i != k) {
-			aa = sc.parallelize(aa.take(M).updated(i, dif(aa.take(i+1).last, mul(newPivotRow, pivotColumn(i)))))
+//			aa = sc.parallelize(aa.take(M).updated(i, dif(aa.take(i+1).last, mul(newPivotRow, pivotColumn(i)))))
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
 		println("Finish")
@@ -348,7 +351,31 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	def result (x: Array[Double]): Double = F
 }
 
+object SimplexReduction {
 
+	private def sum(a: Vector, b: Vector) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
+		c
+	}
 
+	private def dif(a: Vector, b: Vector) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) - b(i)
+		c
+	}
+	
+	private def mul(a: Vector, b: Double) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) * b
+		c
+	}
+
+	private def div(a: Vector, b: Double) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) / b
+		c
+	}
+}
 
 
