@@ -29,7 +29,7 @@ object SolveRandom {
 
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 10
+		val r = 20
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -58,7 +58,7 @@ object SolveRandom {
 
                 // --------------------Define the virtual network using nodes and edges--------------------------------
 //		val rr = scala.util.Random.nextInt(r)
-		val rr = 3
+		val rr = 5
 		var vvertexArray = Array.ofDim [(Long, (String, Int))] (rr)
 		for (i <- 1 to rr) {
                         vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))

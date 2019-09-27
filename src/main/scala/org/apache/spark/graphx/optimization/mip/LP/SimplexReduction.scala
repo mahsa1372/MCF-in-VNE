@@ -46,7 +46,7 @@ import org.apache.spark.graphx.optimization.mip.SimplexReduction.div
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.sum
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.mul
 
-class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) {
+class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
 //	private val M = a.size
@@ -60,8 +60,8 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 //	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
 //	private var B = Array.ofDim [Double] (M)
 
-	private val M = a.count.toInt
-	private val N = a.first.size
+	private val M = aa.count.toInt
+	private val N = aa.first.size
 	private val A = countNeg(b)
 	private val nA = M + N
 	private val MAX_ITER = 200 * N
@@ -70,7 +70,8 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var aa : DMatrix = a
+//	private var aa : DMatrix = sc.parallelize(Array.ofDim [Double](M, N)).map(Vectors.dense(_))
+//	aa = a
 	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
 	private var pivotColumn = Array.ofDim[Double](M)
 //	for (i <- 0 until M) {
@@ -237,7 +238,6 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 		val newPivotRow = div(aa.take(k+1).last,pivot)
 		B.toArray(k) = B(k) / pivot
 		pivotColumn(k) = 1.0
-		aa.cache()
 		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
 		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
 		for (i <- 0 until M if i != k) {
