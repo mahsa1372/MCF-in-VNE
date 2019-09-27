@@ -66,8 +66,10 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var aa : DMatrix = a
+	private var aa : DMatrix = sc.parallelize(Array.ofDim[Double](M,N)).map(Vectors.dense(_))
+	aa = a
 	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
+	private var pivotColumn = Array.ofDim[Double](M)
 //	for (i <- 0 until M) {
 //		flag = if (b(i) < 0.0) -1.0 else 1.0
 //		B(i) = b(i) * flag					// col b: limit/RHS vector b
@@ -191,9 +193,10 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 
 	def leaving (l: Int): Int = {
 		var k = -1
-		for (i <- 0 until M if aa.take(i+1).last(l) > 0) {
+		pivotColumn = aa.map(s => s(l)).collect
+		for (i <- 0 until M if pivotColumn(i) > 0) {
 			if (k == -1) k = i
-			else if (B(i) / aa.take(i+1).last(l) <= B(k) / aa.take(k+1).last(l)) {
+			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
 				k = i
 			}
 		}
@@ -230,17 +233,20 @@ class SimplexReduction (a: DMatrix, b: DenseVector, c: DenseVector, @transient s
 		val pivot = aa.take(k+1).last(l)
 		val newPivotRow = div(aa.take(k+1).last,pivot)
 		B.toArray(k) = B(k) / pivot
+		println("First Parallelize")
 		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
+		println("Second Parallelize")
+		pivotColumn(k) = 1.0
 		for (i <- 0 until M if i != k) {
-			val pivotColumn = aa.take(i+1).last(l)
-			aa = sc.parallelize(aa.take(M).updated(i, dif(aa.take(i+1).last, mul(newPivotRow, pivotColumn))))
-			B.toArray(i) = B(i) - B(k) * pivotColumn
+			aa = sc.parallelize(aa.take(M).updated(i, dif(aa.take(i+1).last, mul(newPivotRow, pivotColumn(i)))))
+			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
-		val pivotColumn = C(l)
+		println("Finish")
+		val pivotC = C(l)
 		for (j <- 0 until N) {
-			C.toArray(j) = C(j) - aa.take(k+1).last(j)* pivotColumn // update rest of pivot column to zero
+			C.toArray(j) = C(j) - newPivotRow(j)* pivotC // update rest of pivot column to zero
 		}
-		F = F - B(k) * pivotColumn
+		F = F - B(k) * pivotC
 		x_B(k) = l
 	}
 		
