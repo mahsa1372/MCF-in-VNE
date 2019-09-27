@@ -21,9 +21,11 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
+import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
+import org.apache.spark.graphx.optimization.mip.VectorSpace._
 
 class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) {
 
@@ -137,7 +139,7 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                 }
 
 		val rows: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
-		val C: DVector = sc.parallelize(c).glom.map(new DenseVector(_))
+		val C: DenseVector = new DenseVector(c)
 		val B: DenseVector = new DenseVector(b)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
@@ -148,7 +150,7 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-			val f = lp.result(lp.solve())
+			val f = lp.result()
 			f
 		}
 
