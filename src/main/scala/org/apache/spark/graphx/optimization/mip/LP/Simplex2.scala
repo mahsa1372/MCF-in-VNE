@@ -43,12 +43,11 @@ import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 
-//class Simplex2 (a: Array[Array[Double]], b: Array[Double], c: Array[Double]) {
 class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext) {
 
 	// ------------------------------Initialize the basic variables from input-----------------------------------------------	
-	private val M = a.numRows//a.size				// the number of constraints
-	private val N = a.numCols//a(0).size				// the number of decision variables
+	private val M = a.numRows					// the number of constraints
+	private val N = a.numCols					// the number of decision variables
 	private val A = countNeg(b)					// the number of artificial variables
 	private val nA = M + N						// the number of non-artificial variables
 	private val MM = M + 1						// the number of rows in tableau
@@ -56,9 +55,7 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 	private var lc = NN - 1						// the last column: Array b
 	private val MAX_ITER = 200 * N					// maximum number of iterations
 	private var flag = 1.0						// flag: 1 for slack or -1 for surplus depending on b
-        //private val ta = Array.ofDim[Double](MM, NN)			// the MM-by-NN simplex tableau
 	private var t: DenseMatrix = new DenseMatrix(MM, NN, Array.ofDim[Double](MM*NN), true)
-//	private var tt : RDD[Double] = sc.parallelize(t.values,8)
 	private var ca = -1						// counter for artificial variables
 	private val x_B = Array.ofDim [Int] (M)				// the basis
 
@@ -154,21 +151,15 @@ class Simplex2(a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext
 		print("pivot: entering = " + l)
 		print(" leaving = " + k)
 		println("")
-//		tt = sc.parallelize(t.values,8)
-//		val pivot = tt.collect.array((k*t.numCols) + l)
 		val pivot = t(k,l)
-//		for (i <- 0 to lc) tt = sc.parallelize(tt.collect.updated((k*t.numCols)+i, tt.collect.array((k*t.numCols)+i) /pivot),8)
 		for (i <- 0 to lc) t.values((k*t.numCols) + i) = t(k, i) / pivot
 		for (i <- 0 to M if i != k) { 
-//			val pivotColumn = tt.collect.array((i*t.numCols) + l)
 			val pivotColumn = t(i, l)
 			for (j <- 0 to lc) {
 				t.values((i*t.numCols) + j) = t(i, j) - t(k, j)* pivotColumn
-//				tt = sc.parallelize(tt.collect.updated(((i*t.numCols) + j),tt.collect.array((i*t.numCols)+ j) - tt.collect.array((k*t.numCols)+ j)* pivotColumn),8) // update rest of pivot column to zero
 			}
 		}
 		x_B(k) = l						// update basis
-//		t = new DenseMatrix(t.numRows, t.numCols, tt.collect.array, true)
 	}
 
 	// ------------------------------Remove the artificial variables---------------------------------------------------------
