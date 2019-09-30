@@ -138,7 +138,7 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                         }
                 }
 
-		var A: DMatrix = sc.parallelize(a).map(Vectors.dense(_)).cache()
+		var A: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
 		val C: DenseVector = new DenseVector(c)
 		val B: DenseVector = new DenseVector(b)
 
