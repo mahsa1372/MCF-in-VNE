@@ -25,6 +25,7 @@ object SolveRandom {
 	def main(args: Array[String]): Unit = {
 
 		val conf = new SparkConf().setAppName("SolveMCFinLP")
+		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 		val sc = new SparkContext(conf)
 
 		// --------------------Define the substrate network using nodes and edges------------------------------

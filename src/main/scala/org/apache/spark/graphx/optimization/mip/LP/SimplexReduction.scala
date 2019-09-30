@@ -45,6 +45,7 @@ import org.apache.spark.graphx.optimization.mip.SimplexReduction.dif
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.div
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.sum
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.mul
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.sumD
 
 class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) {
 
@@ -69,8 +70,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
 
         // ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
-	var test : Vector = new DenseVector(Array.ofDim[Double](N))
 	def initializeBasis () {
+//		var test : Vector = new DenseVector(Array.ofDim[Double](N))
 		ca = -1
 		for (i <- 0 until M) {
 			if (b(i) >= 0) {
@@ -78,11 +79,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
-				test = sum(test, aa.take(i+1).last)
+//				test = sum(test, aa.take(i+1).last)
+				C = sumD(C, aa.take(i+1).last.toDense)
 				F += b(i)
 			}
 		}
-		C = test.toDense
+//		C = test.toDense
 	}
 
         // ------------------------------Count the negative memebers in vector---------------------
@@ -112,9 +114,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def leaving (l: Int): Int = {
 		var k = -1
 		pivotColumn = aa.map(s => s(l)).collect
+//		val testt = aa.map(s => div(B,s(1)))
 		for (i <- 0 until M if pivotColumn(i) > 0) {
+//		for (i <- 0 until M if testt.take(i+1).last(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
+//			else if (testt.take(i+1).last(i) <= testt.take(k+1).last(k)) {
 				k = i
 			}
 		}
@@ -152,7 +157,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		}
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
-			val pivotRow = argmax(aa.map(s => s(j)).collect)
+//			val pivotRow = argmax(aa.map(s => s(j)).collect)
+			val pivotRow = argmax(aa.map(s => s(j)).take(M))
 			val pivotCol = C(j)
 			val test : DenseVector = mul(aa.take(pivotRow+1).last, pivotCol).toDense
 			for (i <- 0 until N) {
@@ -221,6 +227,12 @@ object SimplexReduction {
 
 	private def sum(a: Vector, b: Vector) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
+		c
+	}
+
+	private def sumD(a: DenseVector, b: DenseVector) :DenseVector ={
+		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
 		c
 	}
