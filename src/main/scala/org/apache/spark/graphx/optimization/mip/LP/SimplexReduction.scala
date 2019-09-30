@@ -40,16 +40,21 @@ import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.graphx.optimization.mip.VectorSpace._
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.dif
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.div
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.sum
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.mul
 import org.apache.spark.graphx.optimization.mip.SimplexReduction.sumD
+import org.apache.spark.graphx.optimization.mip.SimplexReduction.divD
 
-class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) {
+class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
+	if (aa.getStorageLevel == StorageLevel.NONE) {
+		aa.cache()
+	}	
 	private val M = aa.count.toInt
 	private val N = aa.first.size
 	private val A = countNeg(b)
@@ -71,7 +76,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
         // ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
 	def initializeBasis () {
-//		var test : Vector = new DenseVector(Array.ofDim[Double](N))
+		var row : DenseVector = new DenseVector(Array.ofDim[Double](N))
 		ca = -1
 		for (i <- 0 until M) {
 			if (b(i) >= 0) {
@@ -79,12 +84,11 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
-//				test = sum(test, aa.take(i+1).last)
-				C = sumD(C, aa.take(i+1).last.toDense)
+				row = aa.take(i+1).last.toDense
+				C = sumD(C, row)
 				F += b(i)
 			}
 		}
-//		C = test.toDense
 	}
 
         // ------------------------------Count the negative memebers in vector---------------------
@@ -114,12 +118,9 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def leaving (l: Int): Int = {
 		var k = -1
 		pivotColumn = aa.map(s => s(l)).collect
-//		val testt = aa.map(s => div(B,s(1)))
 		for (i <- 0 until M if pivotColumn(i) > 0) {
-//		for (i <- 0 until M if testt.take(i+1).last(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
-//			else if (testt.take(i+1).last(i) <= testt.take(k+1).last(k)) {
 				k = i
 			}
 		}
@@ -127,20 +128,30 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		k
 	}
 
+/*	def leaving (l: Int): Int = {
+		var k = -1
+		val test = divD(aa.take(l).last, B)
+		k = test.argmax
+		if (test(k) <= 0) {
+			k = -1
+			println("The solution is UNBOUNDED")
+		}
+		k
+	}
+*/
         // ------------------------------Update tableau with pivot row and column------------------------------------------------
 	def update (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		val pivot = aa.take(k+1).last(l)
-		val newPivotRow = div(aa.take(k+1).last,pivot)
-		B.toArray(k) = B(k) / pivot
+		val pivot = aa.take(k+1).last
+		val newPivotRow = div(pivot,pivot(l))
+		B.toArray(k) = B(k) / pivot(l)
 		pivotColumn(k) = 1.0
 		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
 		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
-		println("Finish")
 		val pivotC = C(l)
 		for (j <- 0 until N) {
 			C.toArray(j) = C(j) - newPivotRow(j)* pivotC // update rest of pivot column to zero
@@ -252,6 +263,12 @@ object SimplexReduction {
 	private def div(a: Vector, b: Double) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) / b
+		c
+	}
+	
+	private def divD(a: Vector, b: DenseVector) :DenseVector ={
+		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = b(i) / a(i)
 		c
 	}
 }
