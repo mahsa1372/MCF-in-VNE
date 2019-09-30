@@ -142,11 +142,8 @@ class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @
 		println("Update")
 		val pivot = t(k)(l)
 		for (i <- 0 to lc) t(k)(i) = t(k)(i) / pivot		// make pivot 1 and update the pivot row
-//		t(k) = sc.parallelize(t.transpose(s => s)).map(Vectors.dense(_)).map(s => s(k)/pivot).collect
-//		val test = sc.parallelize(t.transpose(s => s), 8).map(Vectors.dense(_))
 		for (i <- 0 to M if i != k) { 
 			val pivotColumn = t(i)(l)
-//			t(i) = sc.parallelize(t.transpose(s => s)).map(s => s(i) - s(k)*pivotColumn).collect
 			for (j <- 0 to lc) {
 				t(i)(j) = t(i)(j) - t(k)(j)* pivotColumn // update rest of pivot column to zero
 			}
