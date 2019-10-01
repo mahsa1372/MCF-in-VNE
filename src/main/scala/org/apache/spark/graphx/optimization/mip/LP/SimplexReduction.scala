@@ -53,7 +53,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
 	if (aa.getStorageLevel == StorageLevel.NONE) {
-		aa.cache()
+		aa.persist(StorageLevel.MEMORY_AND_DISK)
 	}	
 	private val M = aa.count.toInt
 	private val N = aa.first.size
@@ -76,7 +76,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
         // ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
 	def initializeBasis () {
-		var row : DenseVector = new DenseVector(Array.ofDim[Double](N))
+//		var row : DenseVector = new DenseVector(Array.ofDim[Double](N))
+//		val row = aa.collect
 		ca = -1
 		for (i <- 0 until M) {
 			if (b(i) >= 0) {
@@ -84,8 +85,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
-				row = aa.take(i+1).last.toDense
-				C = sumD(C, row)
+//				row = aa.take(i+1).last.toDense
+				C = sumD(C, aa.zipWithIndex.filter{case(a,b) => b == i}.take(1).last._1.toDense)
 				F += b(i)
 			}
 		}
@@ -143,7 +144,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def update (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		val pivot = aa.take(k+1).last
+//		val pivot = aa.take(k+1).last 
+		val pivot = aa.zipWithIndex.filter{case(a,b) => b == k}.take(1).last._1
 		val newPivotRow = div(pivot,pivot(l))
 		B.toArray(k) = B(k) / pivot(l)
 		pivotColumn(k) = 1.0
@@ -171,7 +173,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 //			val pivotRow = argmax(aa.map(s => s(j)).collect)
 			val pivotRow = argmax(aa.map(s => s(j)).take(M))
 			val pivotCol = C(j)
-			val test : DenseVector = mul(aa.take(pivotRow+1).last, pivotCol).toDense
+			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.take(1).last._1, pivotCol).toDense
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
 			}
@@ -203,7 +205,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
                 else {
                         for (i <- 0 until N) C.toArray(i) = -c(i)		// set cost row to given cost vector
                 }
-
+		print("Solve:")
                 initializeBasis ()
 
                 if (A > 0) {

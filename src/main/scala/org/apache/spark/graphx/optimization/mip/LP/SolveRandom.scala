@@ -20,7 +20,7 @@ import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
 
 
-object SolveRandom {
+object SolveRandom extends Serializable {
 
 	def main(args: Array[String]): Unit = {
 
