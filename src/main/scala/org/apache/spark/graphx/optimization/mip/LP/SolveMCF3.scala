@@ -27,26 +27,22 @@ import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 import org.apache.spark.graphx.optimization.mip.VectorSpace._
 
-class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) {
+class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) extends Serializable {
 
                 // --------------------Define matrix of constraints and vector of costs--------------------------------
-                val m = gv.vertices.collect.size                        // number of virtual nodes
-                val n = gs.vertices.collect.size                        // number of substrate nodes
-                val mm = m*(m-1)                                        // number of virtual links
-                val nn = n*(n-1)                                        // number of substrate links
-                val ss = Source._1					// source substrate: X1
-                val sv = Source._2					// Source virtual: Xa
-		val ds = Destination._1					// destination substrate: X3
-                val dv = Destination._2					// destination virtual: Xb
-                val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
-                val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)        // define vector b
-                val c = Array.ofDim[Double](mm*nn)                     // define vector c
-		val numPartitions = 2
+                private val m = gv.vertices.collect.size                        // number of virtual nodes
+                private val n = gs.vertices.collect.size                        // number of substrate nodes
+                private val mm = m*(m-1)                                        // number of virtual links
+                private val nn = n*(n-1)                                        // number of substrate links
+                private val ss = Source._1					// source substrate: X1
+                private val sv = Source._2					// Source virtual: Xa
+		private val ds = Destination._1					// destination substrate: X3
+                private val dv = Destination._2					// destination virtual: Xb
+                private val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
+                private val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)        // define vector b
+                private val c = Array.ofDim[Double](mm*nn)                     // define vector c
 
-                val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => (srcId, attr1, dstId)}
-
-		val file_Object = new File("abc.xlsx")
-		val print_Writer = new PrintWriter(file_Object)
+                private val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => (srcId, attr1, dstId)}
 
                 var number = 0
                 var numberOfVLinks = 0
@@ -138,9 +134,9 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                         }
                 }
 
-		var A: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
-		val C: DenseVector = new DenseVector(c)
-		val B: DenseVector = new DenseVector(b)
+		private var A: DMatrix = sc.parallelize(a).map(Vectors.dense(_))
+		private val C: DenseVector = new DenseVector(c)
+		private val B: DenseVector = new DenseVector(b)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
 		val lp = new SimplexReduction(A, B, C, sc=sc)
