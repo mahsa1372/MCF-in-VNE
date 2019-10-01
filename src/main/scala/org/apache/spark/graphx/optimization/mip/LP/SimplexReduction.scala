@@ -146,11 +146,13 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		println(" leaving = " + k)
 //		val pivot = aa.take(k+1).last 
 		val pivot = aa.zipWithIndex.filter{case(a,b) => b == k}.take(1).last._1
+//		val pivot = aa.zipWithIndex.map{case (a,b) => if(b==k) a}.take(k+1).last
 		val newPivotRow = div(pivot,pivot(l))
 		B.toArray(k) = B(k) / pivot(l)
 		pivotColumn(k) = 1.0
 		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
-		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
+		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
+//		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
@@ -170,10 +172,13 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		}
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
-//			val pivotRow = argmax(aa.map(s => s(j)).collect)
-			val pivotRow = argmax(aa.map(s => s(j)).take(M))
+			println("1")
+			val pivotRow = argmax(aa.map(s => s(j)).collect)
+//			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
 			val pivotCol = C(j)
+			println("2")
 			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.take(1).last._1, pivotCol).toDense
+			println("3")
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
 			}
