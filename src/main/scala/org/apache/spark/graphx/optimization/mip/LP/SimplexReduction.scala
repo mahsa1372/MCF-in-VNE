@@ -66,7 +66,6 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
 	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
-	private var pivotColumn = Array.ofDim[Double](M)
 
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
@@ -76,8 +75,6 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
         // ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
 	def initializeBasis () {
-//		var row : DenseVector = new DenseVector(Array.ofDim[Double](N))
-//		val row = aa.collect
 		ca = -1
 		for (i <- 0 until M) {
 			if (b(i) >= 0) {
@@ -85,8 +82,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
-//				row = aa.take(i+1).last.toDense
-				C = sumD(C, aa.zipWithIndex.filter{case(a,b) => b == i}.take(1).last._1.toDense)
+				C = sumD(C, aa.zipWithIndex.filter{case(a,b) => b == i}.reduce((i,j) => j)._1.toDense)
 				F += b(i)
 			}
 		}
@@ -116,9 +112,9 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
-	def leaving (l: Int): Int = {
+	def leaving (l: Int): (Int,Array[Double]) = {
 		var k = -1
-		pivotColumn = aa.map(s => s(l)).collect
+		val pivotColumn = aa.map(s => s(l)).collect
 		for (i <- 0 until M if pivotColumn(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -126,42 +122,18 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			}
 		}
 		if (k == -1) println("The solution is UNBOUNDED")
-		k
+		(k, pivotColumn)
 	}
 
-/*	def leaving (l: Int): Int = {
-		var k = -1
-		val test = divD(aa.take(l).last, B)
-		k = test.argmax
-		if (test(k) <= 0) {
-			k = -1
-			println("The solution is UNBOUNDED")
-		}
-		k
-	}
-*/
         // ------------------------------Update tableau with pivot row and column------------------------------------------------
-	def update (k: Int, l: Int) {
+	def update (k: Int, l: Int, pivotColumn: Array[Double]) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		println("1")
-//		val pivot = aa.take(k+1).last 
-//		val pivot = aa.zipWithIndex.filter{case(a,b) => b == k}.take(1).last._1
-		val pivot = aa.map(s => s(l)).zipWithIndex.filter{case(s,t) => t==k}.reduce((i,j) => j)._1
-		println("2")
-//		val pivot = aa.zipWithIndex.map{case (a,b) => if(b==k) a}.take(k+1).last
-//		val newPivotRow = div(pivot,pivot(l))
 		val newPivotRow = aa.zipWithIndex.map{case(a,b) => if(b==k) div(a,a(l)) else a}.zipWithIndex.filter{case(a,b) => b == k}.reduce((i,j) => j)._1
-		println("3")
-//		B.toArray(k) = B(k) / pivot(l)
-		B.toArray(k) = B(k) / pivot
+		B.toArray(k) = B(k) / pivotColumn(k)
 		pivotColumn(k) = 1.0
-		println("4")
 		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
-		println("5")
 		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
-//		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
-		println("Fertig")
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
@@ -181,14 +153,11 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		}
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
-			println("1")
 //			val pivotRow = argmax(aa.map(s => s(j)).collect)
 			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
 			val pivotCol = C(j)
-			println("2")
-//			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.take(1).last._1, pivotCol).toDense
+//			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j)=>j)._1,pivotCol).toDense
 			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
-			println("3")
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
 			}
@@ -204,8 +173,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
                 breakable {
                         for (it <- 1 to MAX_ITER) {
                                 l = entering; if (l == -1) break        // -1 : optimal solution found
-                                k = leaving (l); if (k == -1) break     // -1 : solution is unbounded
-                                update (k, l)                           // update: k leaves and l enters
+                                var (k,pivotColumn) :(Int,Array[Double]) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
+                                update (k, l, pivotColumn)                           // update: k leaves and l enters
                         }
                 }
                 solution                                                // return the solution vector x
