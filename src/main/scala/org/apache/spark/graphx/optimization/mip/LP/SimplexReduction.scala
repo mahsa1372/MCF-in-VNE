@@ -144,15 +144,24 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def update (k: Int, l: Int) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
+		println("1")
 //		val pivot = aa.take(k+1).last 
-		val pivot = aa.zipWithIndex.filter{case(a,b) => b == k}.take(1).last._1
+//		val pivot = aa.zipWithIndex.filter{case(a,b) => b == k}.take(1).last._1
+		val pivot = aa.map(s => s(l)).zipWithIndex.filter{case(s,t) => t==k}.reduce((i,j) => j)._1
+		println("2")
 //		val pivot = aa.zipWithIndex.map{case (a,b) => if(b==k) a}.take(k+1).last
-		val newPivotRow = div(pivot,pivot(l))
-		B.toArray(k) = B(k) / pivot(l)
+//		val newPivotRow = div(pivot,pivot(l))
+		val newPivotRow = aa.zipWithIndex.map{case(a,b) => if(b==k) div(a,a(l)) else a}.zipWithIndex.filter{case(a,b) => b == k}.reduce((i,j) => j)._1
+		println("3")
+//		B.toArray(k) = B(k) / pivot(l)
+		B.toArray(k) = B(k) / pivot
 		pivotColumn(k) = 1.0
+		println("4")
 		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
+		println("5")
 		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
 //		aa = sc.parallelize(aa.take(M).updated(k, newPivotRow))
+		println("Fertig")
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
@@ -173,11 +182,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
 			println("1")
-			val pivotRow = argmax(aa.map(s => s(j)).collect)
-//			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
+//			val pivotRow = argmax(aa.map(s => s(j)).collect)
+			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
 			val pivotCol = C(j)
 			println("2")
-			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.take(1).last._1, pivotCol).toDense
+//			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.take(1).last._1, pivotCol).toDense
+			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
 			println("3")
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
@@ -277,6 +287,11 @@ object SimplexReduction {
 		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = b(i) / a(i)
 		c
+	}
+
+	private def apply(a: Vector, b: Vector) :Vector ={
+		var b = a
+		b
 	}
 }
 
