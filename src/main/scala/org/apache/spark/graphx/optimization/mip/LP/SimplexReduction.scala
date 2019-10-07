@@ -56,7 +56,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		aa.persist(StorageLevel.MEMORY_AND_DISK)
 	}	
 	private val M = aa.count.toInt
-	private val N = aa.first.size
+	private val N = aa.first._1.size
 	private val A = countNeg(b)
 	private val nA = M + N
 	private val MAX_ITER = 200 * N
@@ -82,7 +82,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
-				C = sumD(C, aa.zipWithIndex.filter{case(a,b) => b == i}.reduce((i,j) => j)._1.toDense)
+				C = sumD(C, aa.filter{case(a,b) => b == i}.reduce((i,j) => j)._1.toDense)
 				F += b(i)
 			}
 		}
@@ -114,7 +114,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
 	def leaving (l: Int): (Int,Array[Double]) = {
 		var k = -1
-		val pivotColumn = aa.map(s => s(l)).collect
+//		val pivotColumn = aa.map(s => s(l)).collect
+		val pivotColumn = aa.map{case (a,b) => a(l)}.collect
 		for (i <- 0 until M if pivotColumn(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -129,11 +130,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def update (k: Int, l: Int, pivotColumn: Array[Double]) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		val newPivotRow = aa.zipWithIndex.map{case(a,b) => if(b==k) div(a,a(l)) else a}.zipWithIndex.filter{case(a,b) => b == k}.reduce((i,j) => j)._1
+//		val newPivotRow = aa.map{case(a,b) => if(b==k) div(a,a(l)) else a}.zipWithIndex.filter{case(a,b) => b == k}.reduce((i,j) => j)._1
+		val newPivotRow = aa.filter{case(a,b) => b == k}.map{case(a,b) => div(a,a(l))}.take(1).last
 		B.toArray(k) = B(k) / pivotColumn(k)
 		pivotColumn(k) = 1.0
-		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
-		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
+//		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
+		aa = aa.map{case(s,t) => (dif(s, mul(newPivotRow,s(l))),t)}
+//		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
+		aa = aa.map{case(a,b) => if(b==k) (newPivotRow,b) else (a,b)}
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
@@ -154,10 +158,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
 //			val pivotRow = argmax(aa.map(s => s(j)).collect)
-			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
+//			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
+			val pivotRow = aa.map{case (s,t) => (s(j),t)}.max._2.toInt
 			val pivotCol = C(j)
 //			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j)=>j)._1,pivotCol).toDense
-			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
+//			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
+			val test : DenseVector = aa.filter{case (a,b) => b == pivotRow}.map{case(a,b) => mul(a,pivotCol)}.take(1).last.toDense
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
 			}
