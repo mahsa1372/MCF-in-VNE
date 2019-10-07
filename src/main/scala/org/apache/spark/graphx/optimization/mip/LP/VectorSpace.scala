@@ -95,6 +95,6 @@ object VectorSpace {
     * A distributed two dimensional matrix stored as an RDD of mllib.linalg Vectors, where each
     * Vector represents a row of the matrix. The Vectors may be dense or sparse.
     */
-  type DMatrix = RDD[Vector]
+  type DMatrix = RDD[(Vector, Long)]
 
 }
