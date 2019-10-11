@@ -29,7 +29,7 @@
  */
 //-------------------------------------------------------------------------------------------------------------------------------
 
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}

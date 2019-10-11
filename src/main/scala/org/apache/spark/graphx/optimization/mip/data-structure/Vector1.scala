@@ -8,7 +8,7 @@
  */
 //-------------------------------------------------------------------------------------------------
 
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.collection.{breakOut, Traversable}
 import scala.collection.mutable.{IndexedSeq, WrappedArray}

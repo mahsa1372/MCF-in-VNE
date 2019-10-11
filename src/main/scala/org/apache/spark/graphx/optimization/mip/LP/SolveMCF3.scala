@@ -9,7 +9,7 @@
  *  Source and destination are clearly defined.
  */
 //---------------------------------------------------------------------------------------------------------------------
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import java.io.File
 import java.io.PrintWriter
@@ -25,7 +25,7 @@ import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
-import org.apache.spark.graphx.optimization.mip.VectorSpace._
+import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
 
 class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) extends Serializable {
 

@@ -9,7 +9,7 @@
  *  Source and destination are clearly defined.
  */
 //---------------------------------------------------------------------------------------------------------------------
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
@@ -19,18 +19,17 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
 
-
 object SolveRandom extends Serializable {
 
 	def main(args: Array[String]): Unit = {
 
 		val conf = new SparkConf().setAppName("SolveMCFinLP")
-		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+//		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 		val sc = new SparkContext(conf)
 
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 20
+		val r = 15
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -45,7 +44,7 @@ object SolveRandom extends Serializable {
 			for (j <- i to r) {
 				if (i == j) {}
 				else {
-					var m = s.nextInt(10)
+					var m = s.nextInt(10)+1
 					sedgeArray(number) = Edge(i.toLong, j.toLong, (m, 1000))
 					number += 1
 					sedgeArray(number) = Edge(j.toLong, i.toLong, (m, 1000))
@@ -73,7 +72,7 @@ object SolveRandom extends Serializable {
                         for (j <- i to rr) {
                                 if (i == j) {}
                                 else {
-                                        var mm = s.nextInt(10)
+                                        var mm = s.nextInt(10)+1
                                         vedgeArray(numberv) = Edge(i.toLong, j.toLong, (mm, 1000))
                                         numberv += 1
                                         vedgeArray(numberv) = Edge(j.toLong, i.toLong, (mm, 1000))

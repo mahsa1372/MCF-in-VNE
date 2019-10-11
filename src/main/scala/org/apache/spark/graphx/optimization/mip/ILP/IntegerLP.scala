@@ -22,7 +22,7 @@
  *  @param excl  the set of variables to be excluded from the integer requirement 
  */
 //-------------------------------------------------------------------------------------------------------------------------------
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.ilp
 
 import scala.math.{abs, ceil, floor, round}
 import scala.util.control.Breaks.{breakable, break}
@@ -34,6 +34,7 @@ import org.apache.spark.mllib.linalg.{Vector, Vectors, DenseVector}
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
+import org.apache.spark.mllib.optimization.mip.lp.SimplexRDD
 
 class IntegerLP (a: DenseMatrix, b: Vector, c: Vector, @transient sc: SparkContext, excl: Set [Int] = Set ()) {
 
