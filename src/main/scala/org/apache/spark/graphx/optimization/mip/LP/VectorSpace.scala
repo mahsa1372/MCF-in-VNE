@@ -1,4 +1,4 @@
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import org.apache.spark.mllib.linalg.{DenseVector, Vector}
 import org.apache.spark.rdd.RDD

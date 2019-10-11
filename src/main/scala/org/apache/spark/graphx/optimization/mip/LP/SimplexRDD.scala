@@ -29,7 +29,7 @@
  */
 //-------------------------------------------------------------------------------------------------------------------------------
 
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
@@ -41,7 +41,7 @@ import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
-import org.apache.spark.graphx.optimization.mip.VectorSpace._
+import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
 
 class SimplexRDD (a: Array[Array[Double]], b: Array[Double], c: Array[Double], @transient sc: SparkContext) {
 	

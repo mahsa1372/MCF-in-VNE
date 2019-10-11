@@ -27,7 +27,7 @@
  */
 //-------------------------------------------------------------------------------------------------------------------------------
 
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
@@ -40,21 +40,22 @@ import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.mllib.linalg.Matrix
 import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
+import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.graphx.optimization.mip.VectorSpace._
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.dif
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.div
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.sum
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.mul
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.sumD
-import org.apache.spark.graphx.optimization.mip.SimplexReduction.divD
+import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.dif
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.div
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.sum
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.mul
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.sumD
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.divD
 
 class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
-	if (aa.getStorageLevel == StorageLevel.NONE) {
-		aa.persist(StorageLevel.MEMORY_AND_DISK)
-	}	
+//	if (aa.getStorageLevel == StorageLevel.NONE) {
+//		aa.persist(StorageLevel.MEMORY_AND_DISK)
+//	}	
 	private val M = aa.count.toInt
 	private val N = aa.first._1.size
 	private val A = countNeg(b)
@@ -66,7 +67,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
 	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
-
+//	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N), 2).glom.map(new Den)
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
                 B.toArray(i) = b(i) * flag                                      // col b: limit/RHS vector b
@@ -82,7 +83,11 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 			} else {
 				ca += 1
 				x_B(i) = nA +ca
+				val t0 = System.nanoTime()
 				C = sumD(C, aa.filter{case(a,b) => b == i}.reduce((i,j) => j)._1.toDense)
+				val t1 = System.nanoTime()
+				print("Elapsed time: " + (t1 - t0) + "ns.")
+//				C = sumD(C, aa.map{case(a,b) => a(i)}.glom.map(new Densevector(_))) //DVector + DVector
 				F += b(i)
 			}
 		}
@@ -164,6 +169,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 //			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j)=>j)._1,pivotCol).toDense
 //			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
 			val test : DenseVector = aa.filter{case (a,b) => b == pivotRow}.map{case(a,b) => mul(a,pivotCol)}.take(1).last.toDense
+			aa.unpersist()
 			for (i <- 0 until N) {
 				C.toArray(i) -= test(i)
 			}
@@ -179,8 +185,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
                 breakable {
                         for (it <- 1 to MAX_ITER) {
                                 l = entering; if (l == -1) break        // -1 : optimal solution found
+				val t0 = System.nanoTime()
                                 var (k,pivotColumn) :(Int,Array[Double]) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
+				val t1 = System.nanoTime()
+                                print("Elapsed time leaving: " + (t1 - t0) + "ns.")
+				val t2 = System.nanoTime()
                                 update (k, l, pivotColumn)                           // update: k leaves and l enters
+				val t3 = System.nanoTime()
+                                print("Elapsed time update: " + (t3 - t2) + "ns.")
                         }
                 }
                 solution                                                // return the solution vector x
@@ -268,6 +280,21 @@ object SimplexReduction {
 		var b = a
 		b
 	}
+
+//	private def axpy(a: Double, x: Vector, y: Vector): Unit = {
+//		require(x.size == y.size)
+//		y match {
+//			case dy: DenseVector => x match {
+//				case sx: SparseVector => axpy(a, sx, dy)
+//				case dx: DenseVector => axpy(a, dx, dy)
+//				case _ => throw new UnsupportedOperationException(s"axpy doesn't support x type ${x.getClass}.")
+//			}
+//			case _ =>
+//			throw new IllegalArgumentException(
+//			s"axpy only supports adding to a dense vector but got type ${y.getClass}.")
+//		}
+//	}
+
 }
 
 

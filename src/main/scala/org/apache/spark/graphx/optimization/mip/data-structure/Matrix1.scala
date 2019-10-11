@@ -8,7 +8,7 @@
  *  @param v   the 2-dimension-array
  */
 //-------------------------------------------------------------------------------------------------
-package org.apache.spark.graphx.optimization.mip
+package org.apache.spark.mllib.optimization.mip.lp
 
 import java.io.PrintWriter
 import scala.io.Source.fromFile
