@@ -43,19 +43,18 @@ import org.apache.spark.mllib.linalg.Matrices
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.dif
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.div
+import org.apache.spark.mllib.optimization.mip.lp.vs.dvector.DVectorSpace
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.neg
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.sum
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.dif
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.diff
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.div
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.divv
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.mul
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.sumD
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.divD
 
-class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transient sc: SparkContext) extends Serializable {
+class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient sc: SparkContext) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
-//	if (aa.getStorageLevel == StorageLevel.NONE) {
-//		aa.persist(StorageLevel.MEMORY_AND_DISK)
-//	}	
 	private val M = aa.count.toInt
 	private val N = aa.first._1.size
 	private val A = countNeg(b)
@@ -66,16 +65,25 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var C : DenseVector = new DenseVector(Array.ofDim [Double] (N))
-//	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N), 2).glom.map(new Den)
+	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N)).glom.map(Vectors.dense(_))
+
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
                 B.toArray(i) = b(i) * flag                                      // col b: limit/RHS vector b
         }
 
+	def combine(a: DVector, b: DVector): DVector =
+		a.zip(b).map { case (aPart, bPart) => sum(aPart, bPart) }
+
+	def combined(a: DVector, b: DVector): DVector =
+		a.zip(b).map { case (aPart, bPart) => dif(aPart, bPart) }
+
+	def entrywiseDif(a: DVector, b: DVector): DVector =
+		a.zip(b).map { case (aPart, bPart) => dif(aPart, bPart)	}
 
         // ------------------------------Initialize the basis to the slack & artificial variables--------------------------------
 	def initializeBasis () {
+//		var test :RDD[DenseVector] = sc.parallelize(Array.ofDim[Double](N)).glom.map(new DenseVector(_))
 		ca = -1
 		for (i <- 0 until M) {
 			if (b(i) >= 0) {
@@ -84,10 +92,10 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 				ca += 1
 				x_B(i) = nA +ca
 				val t0 = System.nanoTime()
-				C = sumD(C, aa.filter{case(a,b) => b == i}.reduce((i,j) => j)._1.toDense)
+//				C = combine(C, aa.map{case(s,t) => s(i)}.glom.map(Vectors.dense(_)))
+				C = combine(C, aa.filter{case (a,b) => b==i}.map{case (a,b) => a})
 				val t1 = System.nanoTime()
 				print("Elapsed time: " + (t1 - t0) + "ns.")
-//				C = sumD(C, aa.map{case(a,b) => a(i)}.glom.map(new Densevector(_))) //DVector + DVector
 				F += b(i)
 			}
 		}
@@ -101,7 +109,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
         }
 
         // ------------------------------Find the index of maximum element-------------------------
-	def argmax (v: Array [Double]): Int = {
+	def argmax (v: Array[Double]): Int = {
 		var j = 0
 		for (i <- 1 until v.size if v(i) > v(j)) j = i
 		j
@@ -113,14 +121,15 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	}
         // ------------------------------Entering variable selection(pivot column)-----------------------------------------------
 	def entering (): Int = {
-		argmaxPos(C)
+//		argmaxPos(C)
+		C.map(s => if(s.toArray.max > 0.0) s.argmax else -1).reduce((i,j) => j)
 	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
 	def leaving (l: Int): (Int,Array[Double]) = {
 		var k = -1
-//		val pivotColumn = aa.map(s => s(l)).collect
-		val pivotColumn = aa.map{case (a,b) => a(l)}.collect
+		var pivotColumn = aa.map{case (a,b) => a(l)}.collect
+//		val pivotColumn = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 		for (i <- 0 until M if pivotColumn(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -135,21 +144,27 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 	def update (k: Int, l: Int, pivotColumn: Array[Double]) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-//		val newPivotRow = aa.map{case(a,b) => if(b==k) div(a,a(l)) else a}.zipWithIndex.filter{case(a,b) => b == k}.reduce((i,j) => j)._1
-		val newPivotRow = aa.filter{case(a,b) => b == k}.map{case(a,b) => div(a,a(l))}.take(1).last
+		val aaOld = aa
+		val COld = C
+		var newPivotRow = aa.filter{case(a,b) => b == k}.map{case(a,b) => div(a,a(l))}.take(1).last
 		B.toArray(k) = B(k) / pivotColumn(k)
 		pivotColumn(k) = 1.0
-//		aa = aa.map(s => dif(s, mul(newPivotRow,s(l))))
-		aa = aa.map{case(s,t) => (dif(s, mul(newPivotRow,s(l))),t)}
-//		aa = aa.zipWithIndex.map{case(a,b) => if(b==k)newPivotRow else a}
-		aa = aa.map{case(a,b) => if(b==k) (newPivotRow,b) else (a,b)}
+//		val test = Vectors.dense(pivotColumn.toArray)
+//		val pivot = aa.filter{case(a,b) => b==l}.map{case(a,b) => a(k)}.reduce((i,j) => j)
+		aa = aa.map{case(a,b) => if(b==k) (div(a,a(l)),b) else (a,b)}
+		aa = aa.map{case(a,b) => if(b==k) (a,b) else (dif(a, mul(newPivotRow,a(l))),b)}
+                aa.cache().count
+                aaOld.unpersist()
+//		aa = aa.map{case(a,b) => (divv(a,pivot,k),b)}
+//		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k),t)}
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
-		val pivotC = C(l)
-		for (j <- 0 until N) {
-			C.toArray(j) = C(j) - newPivotRow(j)* pivotC // update rest of pivot column to zero
-		}
+		val pivotC = C.first.toDense(l)//C.map(s => s(l)).reduce((i,j) => j)
+		C = C.map(s => dif(s, mul(newPivotRow,pivotC)))
+		C.cache().count
+		COld.unpersist()
+//		C = combined(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(Vectors.dense(_)))
 		F = F - B(k) * pivotC
 		x_B(k) = l
 	}
@@ -157,23 +172,26 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
         // ------------------------------Remove the artificial variables---------------------------------------------------------
 	def removeA () {
 		println("Function: RemoveArtificials")
-		for (i <- 0 until N) {
-			C.toArray(i) = -c(i)
-		}
+		C = c.map(s => neg(s))
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
-//			val pivotRow = argmax(aa.map(s => s(j)).collect)
-//			val pivotRow = aa.map(s => s(j)).zipWithIndex.max._2.toInt
+			val COld = C
+			val t0 = System.nanoTime()
 			val pivotRow = aa.map{case (s,t) => (s(j),t)}.max._2.toInt
-			val pivotCol = C(j)
-//			val test : DenseVector = mul(aa.zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j)=>j)._1,pivotCol).toDense
-//			val test : DenseVector = aa.map(s => mul(s,pivotCol)).zipWithIndex.filter{case (a,b) => b == pivotRow}.reduce((i,j) => j)._1.toDense
-			val test : DenseVector = aa.filter{case (a,b) => b == pivotRow}.map{case(a,b) => mul(a,pivotCol)}.take(1).last.toDense
-			aa.unpersist()
-			for (i <- 0 until N) {
-				C.toArray(i) -= test(i)
-			}
+			val t1 = System.nanoTime()
+			println("Elapsed time1: " + (t1 - t0) + "ns.")
+//			val pivotRow = aa.map{case (s,t) => s(j)}.glom.map(Vectors.dense(_).argmax).reduce((i,j) => j)
+//			val pivotRow = aa.filter{case(a,t) => t==j}.map{case(s,t) => s.argmax}.reduce((i,j) => j)
+			val pivotCol = C.first.toDense(j)//C.map(s => s(j)).reduce((a,b) => b) C.take(1).last(j)
+			val t2 = System.nanoTime()
+			println("Elapsed time2: " + (t2 - t1) + "ns.")
+			C = entrywiseDif(C, aa.filter{case (a,b) => b==pivotRow}.map{case (a,b) => mul(a,pivotCol)})
+			C.cache().count
+			COld.unpersist()
+//			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(Vectors.dense(_)))
 			F -= B(pivotRow) * pivotCol
+			val t3 = System.nanoTime()
+			println("Elapsed time3: " + (t3 - t2) + "ns.")
 		}
 	}
         // ------------------------------Simplex algorithm-----------------------------------------------------------------------
@@ -200,12 +218,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
         // ------------------------------Solve the LP minimization problem using two phases--------------------------------------
         def solve (): Array[Double] = {
+
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
 
                 if (A > 0) { }
                 else {
-                        for (i <- 0 until N) C.toArray(i) = -c(i)		// set cost row to given cost vector
+//			for (i <- 0 until N) C.toArray(i) = -c(i)		// set cost row to given cost vector
+			C = c.map(s => neg(s))
                 }
 		print("Solve:")
                 initializeBasis ()
@@ -240,14 +260,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DenseVector, @transi
 
 object SimplexReduction {
 
-	private def sum(a: Vector, b: Vector) :Vector ={
+	private def neg(a: Vector) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
-		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
+		for (i <- 0 until c.size) c.toArray(i) = if(a(i) > 0.0) -a(i) else 0.0
 		c
 	}
 
-	private def sumD(a: DenseVector, b: DenseVector) :DenseVector ={
-		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
+	private def sum(a: Vector, b: Vector) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
 		c
 	}
@@ -258,6 +278,12 @@ object SimplexReduction {
 		c
 	}
 	
+	private def diff(a: Vector, b: Vector, d: Long) :Vector ={
+		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = if(i == d) a(i) else a(i) - b(i)
+		c
+	}
+
 	private def mul(a: Vector, b: Double) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) * b
@@ -270,30 +296,11 @@ object SimplexReduction {
 		c
 	}
 	
-	private def divD(a: Vector, b: DenseVector) :DenseVector ={
-		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
-		for (i <- 0 until c.size) c.toArray(i) = b(i) / a(i)
-		c
+	private def divv(a: Vector, b: Double, c: Long) :Vector ={
+		var d: Vector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until d.size) d.toArray(i) = if(i == c) a(i) / b else a(i)
+		d
 	}
-
-	private def apply(a: Vector, b: Vector) :Vector ={
-		var b = a
-		b
-	}
-
-//	private def axpy(a: Double, x: Vector, y: Vector): Unit = {
-//		require(x.size == y.size)
-//		y match {
-//			case dy: DenseVector => x match {
-//				case sx: SparseVector => axpy(a, sx, dy)
-//				case dx: DenseVector => axpy(a, dx, dy)
-//				case _ => throw new UnsupportedOperationException(s"axpy doesn't support x type ${x.getClass}.")
-//			}
-//			case _ =>
-//			throw new IllegalArgumentException(
-//			s"axpy only supports adding to a dense vector but got type ${y.getClass}.")
-//		}
-//	}
 
 }
 
