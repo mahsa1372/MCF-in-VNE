@@ -22,10 +22,10 @@ import org.apache.spark.graphx.lib
 object SolveExample extends Serializable {
 
         def main(args: Array[String]): Unit = {
-		val t1 = System.nanoTime
-                val conf = new SparkConf().setAppName("SolveMCFinLP")
+                val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")
                 val sc = new SparkContext(conf)
 
+		val t1 = System.nanoTime
                 // --------------------Define the substrate network using nodes and edges------------------------------
                 var svertexArray = Array((1L,("1",1)),(2L,("2",8)),(3L,("3",1)),(4L,("4",5)),(5L,("5",0)),(6L,("6",5)),(7L,("7",3)),(8L,("8",9)),(9L,("9",0)),(10L,("10",8)),(11L,("11",7)),(12L,("12",2)),(13L,("13",2)),(14L,("14",9)),(15L,("15",8)),(16L,("16",8)),(17L,("17",5)),(18L,("18",7)),(19L,("19",8)),(20L,("20",7)))
                 val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)

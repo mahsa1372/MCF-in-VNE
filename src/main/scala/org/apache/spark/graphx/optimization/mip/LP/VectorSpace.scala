@@ -20,66 +20,8 @@ trait VectorSpace[X] {
     *
     * @return The computed linear combination.
     */
-  def combine(alpha: Double, a: X, beta: Double, b: X): X
+  def combine(a: X, b: X): X
 
-  /**
-    * Compute the inner product of two vectors.
-    *
-    * @param a The first vector.
-    * @param b The second vector.
-    *
-    * @return The computed inner product.
-    */
-  def dot(a: X, b: X): Double
-
-  /**
-    * Compute the entrywise product (Hadamard product) of two vectors.
-    *
-    * @param a The first vector.
-    * @param b The second vector.
-    * @return The computed vector.
-    */
-  def entrywiseProd(a: X, b: X): X
-
-  /**
-    * Compute the entrywise division on negative values of two vectors.
-    *
-    * @param a The first vector.
-    * @param b The second vector.
-    * @return The computed vector.
-    */
-  def entrywiseNegDiv(a: X, b: X): X
-
-  /**
-    * Compute the sum of the elements of a vector.
-    *
-    * @param a The input vector.
-    * @return The computed sum.
-    */
-  def sum(a: X): Double
-
-  /**
-    * Compute the max element of a vector.
-    *
-    * @param a The input vector.
-    * @return The computed maximum value.
-    */
-  def max(a: X): Double
-
-  /**
-    * Compute the min element of a vector.
-    *
-    * @param a The input vector.
-    * @return The computed minimum value.
-    */
-  def min(a: X): Double
-
-  /**
-    * Cache a vector for for efficient access later.
-    *
-    * @param a The vector to cache.
-    */
-  def cache(a: X): Unit = {}
 }
 
 object VectorSpace {
@@ -89,7 +31,7 @@ object VectorSpace {
     * RDD partition contains a single DenseVector. This representation provides improved performance
     * over RDD[Double], which requires that each element be unboxed during elementwise operations.
     */
-  type DVector = RDD[DenseVector]
+  type DVector = RDD[Vector]
 
   /**
     * A distributed two dimensional matrix stored as an RDD of mllib.linalg Vectors, where each
