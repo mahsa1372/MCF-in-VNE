@@ -135,9 +135,8 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                 }
 
 		private val A: DMatrix = sc.parallelize(a).map(Vectors.dense(_)).zipWithIndex
-		A.collect
-//		private val C: DenseVector = new DenseVector(c)
-		private val C: DVector = sc.parallelize(c).glom.map(Vectors.dense(_))
+		private val C: Vector = new DenseVector(c)
+//		private val C: DVector = sc.parallelize(c).glom.map(Vectors.dense(_))
 		private val B: DenseVector = new DenseVector(b)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
