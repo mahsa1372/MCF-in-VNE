@@ -31,7 +31,7 @@ object VectorSpace {
     * RDD partition contains a single DenseVector. This representation provides improved performance
     * over RDD[Double], which requires that each element be unboxed during elementwise operations.
     */
-  type DVector = RDD[Vector]
+  type DVector = RDD[DenseVector]
 
   /**
     * A distributed two dimensional matrix stored as an RDD of mllib.linalg Vectors, where each
