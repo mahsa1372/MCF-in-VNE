@@ -47,16 +47,17 @@ import org.apache.spark.mllib.optimization.mip.lp.vs.dvector.DVectorSpace
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.neg
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.sum
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.dif
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.difv
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.diff
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.div
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.divv
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.mul
 
-class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient sc: SparkContext) extends Serializable {
+class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient sc: SparkContext) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
-	private val M = aa.count.toInt
-	private val N = aa.first._1.size
+	private val M = aa.first._1.size//aa.count.toInt
+	private val N = aa.count.toInt//aa.first._1.size
 	private val A = countNeg(b)
 	private val nA = M + N
 	private val MAX_ITER = 200 * N
@@ -65,7 +66,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var C : Vector = new DenseVector(Array.ofDim [Double] (N))
+	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N)).glom.map(new DenseVector(_))
 
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
@@ -91,9 +92,9 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
 				ca += 1
 				x_B(i) = nA +ca
 				val t0 = System.nanoTime()
-//				C = combine(C, aa.map{case(s,t) => s(i)}.glom.map(Vectors.dense(_)))
+				C = combine(C, aa.map{case(s,t) => s(i)}.glom.map(new DenseVector(_)))
 //				C = combine(C, aa.filter{case (a,b) => b==i}.map{case (a,b) => a})
-				C = sum(C, aa.filter{case(a,b) => b==i}.map{case(a,b) => a}.reduce((a,b) => b))
+//				C = sum(C, aa.filter{case(a,b) => b==i}.map{case(a,b) => a}.reduce((a,b) => b))
 				val t1 = System.nanoTime()
 				print("Elapsed time: " + (t1 - t0) + "ns.")
 				F += b(i)
@@ -123,14 +124,16 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
 	def entering (): Int = {
 //		argmaxPos(C)
 //		C.map(s => if(s.toArray.max > 0.0) s.argmax else -1).reduce((i,j) => j)
-		if(C(C.argmax) > 0.0) C.argmax else -1
+//		if(C(C.argmax) > 0.0) C.argmax else -1
+		val t = C.flatMap(_.values).zipWithIndex.max
+		if(t._1 > 0.0) t._2.toInt else -1
 	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
-	def leaving (l: Int): (Int,Array[Double]) = {
+	def leaving (l: Int): (Int,DenseVector) = {
 		var k = -1
-		var pivotColumn = aa.map{case (a,b) => a(l)}.collect
-//		val pivotColumn = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+//		var pivotColumn = aa.map{case (a,b) => a(l)}.collect
+		val pivotColumn = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 		for (i <- 0 until M if pivotColumn(i) > 0) {
 			if (k == -1) k = i
 			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -142,32 +145,33 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
 	}
 
         // ------------------------------Update tableau with pivot row and column------------------------------------------------
-	def update (k: Int, l: Int, pivotColumn: Array[Double]) {
+	def update (k: Int, l: Int, pivotColumn: DenseVector) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
 		val aaOld = aa
-//		val COld = C
-		var newPivotRow = aa.filter{case(a,b) => b == k}.map{case(a,b) => div(a,a(l))}.take(1).last
+		val COld = C
+//		var newPivotRow = aa.filter{case(a,b) => b == k}.map{case(a,b) => div(a,a(l))}.take(1).last
 		B.toArray(k) = B(k) / pivotColumn(k)
-		pivotColumn(k) = 1.0
-//		val test = Vectors.dense(pivotColumn.toArray)
-//		val pivot = aa.filter{case(a,b) => b==l}.map{case(a,b) => a(k)}.reduce((i,j) => j)
-		aa = aa.map{case(a,b) => if(b==k) (div(a,a(l)),b) else (a,b)}
-		aa = aa.map{case(a,b) => if(b==k) (a,b) else (dif(a, mul(newPivotRow,a(l))),b)}
-                aa.cache().count
-                aaOld.unpersist()
-//		aa = aa.map{case(a,b) => (divv(a,pivot,k),b)}
-//		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k),t)}
+		pivotColumn.toArray(k) = 1.0
+		val test = Vectors.dense(pivotColumn.toArray)
+		val pivot = aa.filter{case(a,b) => b==l}.map{case(a,b) => a(k)}.reduce((i,j) => j)
+//		aa = aa.map{case(a,b) => if(b==k) (div(a,a(l)),b) else (a,b)}
+//		aa = aa.map{case(a,b) => if(b==k) (a,b) else (dif(a, mul(newPivotRow,a(l))),b)}
+		aa = aa.map{case(a,b) => (divv(a,pivot,k),b)}
+		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k),t)}
+		aa.cache().count
+		aaOld.unpersist()
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
 //		val pivotC = C.first.toDense(l)
-		val pivotC = C(l)
+//		val pivotC = C(l)
+		val pivotC = C.flatMap(_.values).zipWithIndex.filter{case(a,b) => b==l}.map{case(a,b) => a}.reduce((i,j) => j)
 //		C = C.map(s => dif(s, mul(newPivotRow,pivotC)))
-		C = dif(C, mul(newPivotRow, pivotC))
-//		C.cache().count
-//		COld.unpersist()
-//		C = combined(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(Vectors.dense(_)))
+//		C = dif(C, mul(newPivotRow, pivotC))
+		C = combined(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+		C.cache().count
+		COld.unpersist()
 		F = F - B(k) * pivotC
 		x_B(k) = l
 	}
@@ -175,25 +179,26 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
         // ------------------------------Remove the artificial variables---------------------------------------------------------
 	def removeA () {
 		println("Function: RemoveArtificials")
-//		C = c.map(s => neg(s))
-		C = neg(c)
+		C = c.map(s => neg(s))
+//		C = neg(c)
 		F = 0.0
 		for (j <- 0 until N if x_B contains j) {
-//			val COld = C
+			val COld = C
 			val t0 = System.nanoTime()
-			val pivotRow = aa.map{case (s,t) => (s(j),t)}.max._2.toInt
+//			val pivotRow = aa.map{case (s,t) => (s(j),t)}.max._2.toInt
 			val t1 = System.nanoTime()
 			println("Elapsed time1: " + (t1 - t0) + "ns.")
-//			val pivotRow = aa.filter{case(a,t) => t==j}.map{case(s,t) => s.argmax}.reduce((i,j) => j)
+			val pivotRow = aa.filter{case(a,t) => t==j}.map{case(s,t) => s.argmax}.reduce((i,j) => j)
 //			val pivotCol = C.first.toDense(j)//C.map(s => s(j)).reduce((a,b) => b) C.take(1).last(j)
-			val pivotCol = C(j)
+//			val pivotCol = C(j)
+			val pivotCol = C.flatMap(_.values).zipWithIndex.filter{case(a,b) => b==j}.map{case(a,b) => a}.reduce((i,j) => j)
 			val t2 = System.nanoTime()
 			println("Elapsed time2: " + (t2 - t1) + "ns.")
 //			C = entrywiseDif(C, aa.filter{case (a,b) => b==pivotRow}.map{case (a,b) => mul(a,pivotCol)})
-			C = dif(C, aa.filter{case (a,b) => b==pivotRow}.map{case (a,b) => mul(a,pivotCol)}.reduce((a,b) => b))
-//			C.cache().count
-//			COld.unpersist()
-//			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(Vectors.dense(_)))
+//			C = dif(C, aa.filter{case (a,b) => b==pivotRow}.map{case (a,b) => mul(a,pivotCol)}.reduce((a,b) => b))
+			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
+			C.cache().count
+			COld.unpersist()
 			F -= B(pivotRow) * pivotCol
 			val t3 = System.nanoTime()
 			println("Elapsed time3: " + (t3 - t2) + "ns.")
@@ -209,7 +214,7 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
                         for (it <- 1 to MAX_ITER) {
                                 l = entering; if (l == -1) break        // -1 : optimal solution found
 				val t0 = System.nanoTime()
-                                var (k,pivotColumn) :(Int,Array[Double]) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
+                                var (k,pivotColumn) :(Int,DenseVector) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
 				val t1 = System.nanoTime()
                                 print("Elapsed time leaving: " + (t1 - t0) + "ns.")
 				val t2 = System.nanoTime()
@@ -230,8 +235,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
                 if (A > 0) { }
                 else {
 //			for (i <- 0 until N) C.toArray(i) = -c(i)		// set cost row to given cost vector
-//			C = c.map(s => neg(s))
-			C = neg(c)
+			C = c.map(s => neg(s))
+//			C = neg(c)
                 }
 		print("Solve:")
                 initializeBasis ()
@@ -266,19 +271,25 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: Vector, @transient s
 
 object SimplexReduction {
 
-	private def neg(a: Vector) :Vector ={
-		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+	private def neg(a: DenseVector) :DenseVector ={
+		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = if(a(i) > 0.0) -a(i) else 0.0
 		c
 	}
 
-	private def sum(a: Vector, b: Vector) :Vector ={
-		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
+	private def sum(a: DenseVector, b: DenseVector) :DenseVector ={
+		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) + b(i)
 		c
 	}
 
-	private def dif(a: Vector, b: Vector) :Vector ={
+	private def dif(a: DenseVector, b: DenseVector) :DenseVector ={
+		var c: DenseVector = new DenseVector(Array.ofDim[Double](a.size))
+		for (i <- 0 until c.size) c.toArray(i) = a(i) - b(i)
+		c
+	}
+
+	private def difv(a: Vector, b: Vector) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
 		for (i <- 0 until c.size) c.toArray(i) = a(i) - b(i)
 		c
