@@ -19,7 +19,7 @@ import org.apache.spark.graphx._
 import org.apache.spark.rdd._
 import org.apache.spark.graphx.lib
 
-object SolveExample extends Serializable {
+object SolveExample5of20 extends Serializable {
 
         def main(args: Array[String]): Unit = {
                 val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")

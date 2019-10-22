@@ -95,10 +95,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 
         // ------------------------------Entering variable selection(pivot column)-----------------------------------------------
 	def entering (): (Int, Array[Double]) = {
-//		val t = C.flatMap(_.values).zipWithIndex.max
 		val t = C.flatMap(_.values).collect
 		(argmaxPos(t),t)
-//		if(t._1 > 0.0) t._2.toInt else -1
 	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
@@ -132,7 +130,6 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
-//		val pivotC = C.flatMap(_.values).zipWithIndex.filter{case(a,b) => b==l}.map{case(a,b) => a}.reduce((i,j) => j)
 		val pivotC = t(l)
 		C = combined(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 		C.cache().count
@@ -150,10 +147,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		val Row = aa.map{case(s,t) => s.argmax}.collect
 		for (j <- 0 until N if x_B contains j) {
 			val COld = C
-//			val pivotRow = aa.filter{case(a,t) => t==j}.map{case(s,t) => s.argmax}.reduce((i,j) => j)
 			val pivotRow = Row(j)
 			val pivotCol = Col(j)
-//			val pivotCol = C.flatMap(_.values).zipWithIndex.filter{case(a,b) => b==j}.map{case(a,b) => a}.reduce((i,j) => j)
 			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
 			C.cache().count
 			COld.unpersist()
