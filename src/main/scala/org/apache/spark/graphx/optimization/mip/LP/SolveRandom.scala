@@ -26,10 +26,10 @@ object SolveRandom extends Serializable {
 		val conf = new SparkConf().setAppName("SolveMCFinLP")
 //		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 		val sc = new SparkContext(conf)
-
+		val t1 = System.nanoTime
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 20
+		val r = 30
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -58,7 +58,7 @@ object SolveRandom extends Serializable {
 
                 // --------------------Define the virtual network using nodes and edges--------------------------------
 //		val rr = scala.util.Random.nextInt(r)
-		val rr = 8
+		val rr = 5
 		var vvertexArray = Array.ofDim [(Long, (String, Int))] (rr)
 		for (i <- 1 to rr) {
                         vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))
@@ -96,6 +96,13 @@ object SolveRandom extends Serializable {
 		val Source = (source_1, source_2)
 		val Destination = (destination_1, destination_2)
 
+		println("source:" + source_1 + source_2)
+		println("destination:" + destination_1 + destination_2)
+		gs.vertices.collect.foreach(println(_))
+		gs.edges.collect.foreach(println(_))
+		gv.vertices.collect.foreach(println(_))
+		gv.edges.collect.foreach(println(_))
+
                 val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
 //                val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
@@ -103,12 +110,8 @@ object SolveRandom extends Serializable {
                 println("Optimal Solution = " + f)
 		println("substrate nodes:" + r)
 		println("virtual nodes:" + rr)
-		println("source:" + source_1 + source_2)
-		println("destination:" + destination_1 + destination_2)
-		gs.vertices.collect.foreach(println(_))
-		gs.edges.collect.foreach(println(_))
-		gv.vertices.collect.foreach(println(_))
-		gv.edges.collect.foreach(println(_))
+		val duration = (System.nanoTime - t1) / 1e9d
+		println("Duration: " + duration)
         }
 }
 
