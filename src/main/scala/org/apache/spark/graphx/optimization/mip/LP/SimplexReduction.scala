@@ -32,15 +32,9 @@ package org.apache.spark.mllib.optimization.mip.lp
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
 import org.apache.spark.{SparkContext, SparkConf}
-import org.apache.spark.graphx._
 import org.apache.spark.rdd._
-import org.apache.spark.graphx.lib
 import org.apache.spark.mllib.linalg.{Vector, Vectors}
 import org.apache.spark.mllib.linalg.DenseVector
-import org.apache.spark.mllib.linalg.Matrix
-import org.apache.spark.mllib.linalg.DenseMatrix
-import org.apache.spark.mllib.linalg.Matrices
-import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
 import org.apache.spark.mllib.optimization.mip.lp.vs.dvector.DVectorSpace
@@ -50,8 +44,7 @@ import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.dif
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.diff
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.div
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.mul
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.combine
-import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.combined
+import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.entrywiseSum
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.entrywiseDif
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.countNeg
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.argmax
@@ -85,9 +78,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 			if (b(i) >= 0) {
 				x_B(i) = N + i
 			} else {
+				val COld = C
 				ca += 1
 				x_B(i) = nA +ca
-				C = combine(C, aa.map{case(s,t) => s(i)}.glom.map(new DenseVector(_)))
+				C = entrywiseSum(C, aa.map{case(s,t) => s(i)}.glom.map(new DenseVector(_)))
+				C.persist().count
+				COld.unpersist()
 				F += b(i)
 			}
 		}
@@ -96,7 +92,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
         // ------------------------------Entering variable selection(pivot column)-----------------------------------------------
 	def entering (): (Int, Array[Double]) = {
 		val t = C.flatMap(_.values).collect
-		(argmaxPos(t),t)
+		val s = argmaxPos(t)
+		(s,t)
 	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
@@ -117,22 +114,25 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 	def update (k: Int, l: Int, pivotColumn: DenseVector, t: Array[Double]) {
 		print("pivot: entering = " + l)
 		println(" leaving = " + k)
-		val aaOld = aa
+		var aaOld = aa
 		val COld = C
 		val pivot = pivotColumn(k)
 		B.toArray(k) = B(k) / pivot
 		pivotColumn.toArray(k) = 1.0
 		val test = Vectors.dense(pivotColumn.toArray)
-		aa = aa.map{case(a,b) => (div(a,pivot,k),b)}
-		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k),t)}
-		aa.cache().count
+//		aa = aa.map{case(a,b) => (div(a,pivot,k),b)}
+//		aa.persist().count
+//		aaOld.unpersist()
+//		aaOld = aa
+		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+		aa.persist().count
 		aaOld.unpersist()
 		for (i <- 0 until M if i != k) {
 			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 		}
 		val pivotC = t(l)
-		C = combined(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
-		C.cache().count
+		C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+		C.persist().count
 		COld.unpersist()
 		F = F - B(k) * pivotC
 		x_B(k) = l
@@ -231,9 +231,9 @@ object SimplexReduction {
 		c
 	}
 
-	private def diff(a: Vector, b: Vector, d: Long) :Vector ={
+	private def diff(a: Vector, b: Vector, d: Long, e: Double) :Vector ={
 		var c: Vector = new DenseVector(Array.ofDim[Double](a.size))
-		for (i <- 0 until c.size) c.toArray(i) = if(i == d) a(i) else a(i) - b(i)
+		for (i <- 0 until c.size) c.toArray(i) = if(i == d) a(i) / e else a(i) - b(i)
 		c
 	}
 
@@ -249,12 +249,8 @@ object SimplexReduction {
 		d
 	}
 
-	private def combine(a: DVector, b: DVector): DVector = a.zip(b).map { 
+	private def entrywiseSum(a: DVector, b: DVector): DVector = a.zip(b).map { 
 		case (aPart, bPart) => sum(aPart, bPart) 
-	}
-
-	private def combined(a: DVector, b: DVector): DVector = a.zip(b).map { 
-		case (aPart, bPart) => dif(aPart, bPart) 
 	}
 
 	private def entrywiseDif(a: DVector, b: DVector): DVector = a.zip(b).map { 
