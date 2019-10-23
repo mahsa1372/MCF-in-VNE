@@ -7,5 +7,6 @@ class LPKryoRegistator extends KryoRegistrator {
 
 	override def registerClasses(kryo: Kryo) {
 		kryo.register(classOf[SimplexReduction])
+		kryo.register(classOf[SolveMCF3])
 	}
 }
