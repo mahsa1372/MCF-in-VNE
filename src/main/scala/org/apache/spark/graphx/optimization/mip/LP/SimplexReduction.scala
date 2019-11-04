@@ -51,7 +51,7 @@ import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.argmax
 import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.argmaxPos
 
 
-class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient sc: SparkContext) extends Serializable {
+class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @transient sc: SparkContext) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
 	private val M = aa.first._1.size
@@ -64,7 +64,9 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 	private var flag = 1.0
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
-	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N)).glom.map(new DenseVector(_))
+	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N),n).glom.map(new DenseVector(_))
+
+	sc.setCheckpointDir("/tmp/checkpoints/")
 
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
@@ -90,53 +92,49 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 	}	
 
         // ------------------------------Entering variable selection(pivot column)-----------------------------------------------
-	def entering (): (Int, Array[Double]) = {
-		val t = C.flatMap(_.values).collect
-		val s = argmaxPos(t)
-		(s,t)
-	}
+//	def entering (): (Int, Array[Double]) = {
+//		val t = C.flatMap(_.values).collect
+//		val s = argmaxPos(t)
+//		(s,t)
+//	}
 
         // ------------------------------Leaving variable selection(pivot row)---------------------------------------------------
-	def leaving (l: Int): (Int,DenseVector) = {
-		var k = -1
-		val pivotColumn = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
-		for (i <- 0 until M if pivotColumn(i) > 0) {
-			if (k == -1) k = i
-			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
-				k = i
-			}
-		}
-		if (k == -1) println("The solution is UNBOUNDED")
-		(k, pivotColumn)
-	}
+//	def leaving (l: Int): (Int,DenseVector) = {
+//		var k = -1
+//		val pivotColumn = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+//		for (i <- 0 until M if pivotColumn(i) > 0) {
+//			if (k == -1) k = i
+//			else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
+//				k = i
+//			}
+//		}
+//		if (k == -1) println("The solution is UNBOUNDED")
+//		(k, pivotColumn)
+//	}
 
         // ------------------------------Update tableau with pivot row and column------------------------------------------------
-	def update (k: Int, l: Int, pivotColumn: DenseVector, t: Array[Double]) {
-		print("pivot: entering = " + l)
-		println(" leaving = " + k)
-		var aaOld = aa
-		val COld = C
-		val pivot = pivotColumn(k)
-		B.toArray(k) = B(k) / pivot
-		pivotColumn.toArray(k) = 1.0
-		val test = Vectors.dense(pivotColumn.toArray)
-//		aa = aa.map{case(a,b) => (div(a,pivot,k),b)}
+//	def update (k: Int, l: Int, pivotColumn: DenseVector, t: Array[Double]) {
+//		print("pivot: entering = " + l)
+//		println(" leaving = " + k)
+//		var aaOld = aa
+//		val COld = C
+//		val pivot = pivotColumn(k)
+//		B.toArray(k) = B(k) / pivot
+//		pivotColumn.toArray(k) = 1.0
+//		val test = Vectors.dense(pivotColumn.toArray)
+//		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
 //		aa.persist().count
 //		aaOld.unpersist()
-//		aaOld = aa
-		aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
-		aa.persist().count
-		aaOld.unpersist()
-		for (i <- 0 until M if i != k) {
-			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
-		}
-		val pivotC = t(l)
-		C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
-		C.persist().count
-		COld.unpersist()
-		F = F - B(k) * pivotC
-		x_B(k) = l
-	}
+//		for (i <- 0 until M if i != k) {
+//			B.toArray(i) = B(i) - B(k) * pivotColumn(i)
+//		}
+//		val pivotC = t(l)
+//		C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+//		C.persist().count
+//		COld.unpersist()
+//		F = F - B(k) * pivotC
+//		x_B(k) = l
+//	}
 		
         // ------------------------------Remove the artificial variables---------------------------------------------------------
 	def removeA () {
@@ -156,21 +154,61 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		}
 	}
         // ------------------------------Simplex algorithm-----------------------------------------------------------------------
-        def solve1 () : Array[Double] = {
+/*        def solve1 (AMatrix: DMatrix, BVector: DenseVector, CVector: DVector) : Array[Double] = {
 		println("Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
 
                 breakable {
                         for (it <- 1 to MAX_ITER) {
-                                var (l, t) : (Int, Array[Double]) = entering; if (l == -1) break        // -1 : optimal solution found
-                                var (k,pivotColumn) :(Int,DenseVector) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
-                                update (k, l, pivotColumn, t)		// update: k leaves and l enters
+                                //var (l, t) : (Int, Array[Double]) = entering; if (l == -1) break        // -1 : optimal solution found
+                                //var (k,pivotColumn) :(Int,DenseVector) = leaving (l); if (k == -1) break     // -1 : solution is unbounded
+                                //update (k, l, pivotColumn, t)		// update: k leaves and l enters
+
+				
+				val aaOld= AMatrix
+				val COld = CVector
+				//entering
+				val t : Array[Double] = CVector.flatMap(_.values).collect
+				val l : Int = argmaxPos(t)
+				if (l == -1) break
+				//leaving
+				var k = -1
+				val pivotColumn : DenseVector = AMatrix.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+				for (i <- 0 until M if pivotColumn(i) > 0) {
+					if (k == -1) k = i
+					else if (BVector(i) / pivotColumn(i) <= BVector(k) / pivotColumn(k)) {
+						k = i
+					}
+				}
+				if (k == -1) {println("The solution is UNBOUNDED") 
+					break}
+				//update
+				print("pivot: entering = " + l)
+				println(" leaving = " + k)
+				val pivot = pivotColumn(k)
+				BVector.toArray(k) = BVector(k) / pivot
+				pivotColumn.toArray(k) = 1.0
+				val test = Vectors.dense(pivotColumn.toArray)
+				var AMatrix :DMatrix = AMatrix.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+				for (i <- 0 until M if i != k) {
+					BVector.toArray(i) = BVector(i) - BVector(k) * pivotColumn(i)
+				}
+				val pivotC = t(l)
+				var CVector :DVector = entrywiseDif(CVector,AMatrix.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+				F = F - BVector(k) * pivotC
+				x_B(k) = l
+				AMatrix.cache().count
+				CVector.cache().count
+				aaOld.unpersist()
+				COld.unpersist()
+//				aa.checkpoint()
+//				C.checkpoint()
                         }
                 }
                 solution                                                // return the solution vector x
         }
-
+*/
         // ------------------------------Solve the LP minimization problem using two phases--------------------------------------
         def solve (): Array[Double] = {
 
@@ -184,14 +222,104 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
                 initializeBasis ()
 
                 if (A > 0) {
-                        println ("solve:  Phase I: ")
-                        x = solve1 ()                                   // solve the Phase I problem
+                        println ("solve:  Phase I: Function: Solve1")
+                	var k = -1                                              // the leaving variable (row)
+                	var l = -1                                              // the entering variable (column)
+
+                	breakable {
+                       		for (it <- 1 to MAX_ITER) {				
+					val aaOld= aa
+					val COld = C
+					//entering
+					val t : Array[Double] = C.flatMap(_.values).collect
+					val l : Int = argmaxPos(t)
+					if (l == -1) break
+					//leaving
+					var k = -1
+					val pivotColumn : DenseVector = aa.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+					for (i <- 0 until M if pivotColumn(i) > 0) {
+						if (k == -1) k = i
+						else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
+							k = i
+						}
+					}
+					if (k == -1) {println("The solution is UNBOUNDED") 
+						break}
+					//update
+					print("pivot: entering = " + l)
+					println(" leaving = " + k)
+					val pivot = pivotColumn(k)
+					B.toArray(k) = B(k) / pivot
+					pivotColumn.toArray(k) = 1.0
+					val test = Vectors.dense(pivotColumn.toArray)
+					aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+					for (i <- 0 until M if i != k) {
+						B.toArray(i) = B(i) - B(k) * pivotColumn(i)
+					}
+					val pivotC = t(l)
+					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+					F = F - B(k) * pivotC
+					x_B(k) = l
+					aa.cache().count
+					C.cache().count
+					aaOld.unpersist()
+					COld.unpersist()                                   // solve the Phase I problem
+				}
+			}
+			x = solution
                         f = result (x)
                         removeA ()
                 }
 
-                println ("solve: Phase II: ")
-                x = solve1 ()                                           // solve the Phase II problem
+		var AA: DMatrix = sc.parallelize(aa.collect,n)
+		aa.unpersist()
+		var CC: DVector = sc.parallelize(C.collect,n)
+		C.unpersist()
+                println ("solve: Phase II: Function: Solve1")
+                var k = -1                                              // the leaving variable (row)
+                var l = -1                                              // the entering variable (column)
+
+                breakable {
+                   	for (it <- 1 to MAX_ITER) {				
+				val aaOld= AA
+				val COld = CC
+				//entering
+				val t : Array[Double] = CC.flatMap(_.values).collect
+				val l : Int = argmaxPos(t)
+				if (l == -1) break
+				//leaving
+				var k = -1
+				val pivotColumn : DenseVector = AA.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+				for (i <- 0 until M if pivotColumn(i) > 0) {
+					if (k == -1) k = i
+					else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
+						k = i
+					}
+				}
+				if (k == -1) {println("The solution is UNBOUNDED") 
+					break}
+				//update
+				print("pivot: entering = " + l)
+				println(" leaving = " + k)
+				val pivot = pivotColumn(k)
+				B.toArray(k) = B(k) / pivot
+				pivotColumn.toArray(k) = 1.0
+				val test = Vectors.dense(pivotColumn.toArray)
+				AA = AA.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+				for (i <- 0 until M if i != k) {
+					B.toArray(i) = B(i) - B(k) * pivotColumn(i)
+				}
+				val pivotC = t(l)
+				CC = entrywiseDif(CC,AA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+				F = F - B(k) * pivotC
+				x_B(k) = l
+				AA.cache().count
+				CC.cache().count
+				aaOld.unpersist()
+				COld.unpersist()                                   // solve the Phase I problem
+			}
+		}
+		x = solution
                 f = result (x)
 		println("F:" + F)
                 x
