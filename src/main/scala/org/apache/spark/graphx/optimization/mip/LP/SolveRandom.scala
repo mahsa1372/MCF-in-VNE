@@ -23,7 +23,7 @@ object SolveRandom extends Serializable {
 
 	def main(args: Array[String]): Unit = {
 
-		val conf = new SparkConf().setAppName("SolveMCFinLP")
+		val conf = new SparkConf().setAppName("SolveMCFinLP with Random Nodes")
 //		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 		val sc = new SparkContext(conf)
 		val t1 = System.nanoTime
@@ -103,7 +103,7 @@ object SolveRandom extends Serializable {
 		gv.vertices.collect.foreach(println(_))
 		gv.edges.collect.foreach(println(_))
 
-                val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
+                val lp = new SolveMCF3(gs, gv, Source, Destination,2, sc=sc)
 //                val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 

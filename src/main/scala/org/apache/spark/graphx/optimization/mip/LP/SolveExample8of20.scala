@@ -13,7 +13,7 @@ package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
-
+import java.io._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
@@ -22,10 +22,9 @@ import org.apache.spark.graphx.lib
 object SolveExample8of20 extends Serializable {
 
         def main(args: Array[String]): Unit = {
-                val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")
+                val conf = new SparkConf().setAppName("Solve MCF 8 of 20 with Simplex")
                 val sc = new SparkContext(conf)
 
-		val t1 = System.nanoTime
                 // --------------------Define the substrate network using nodes and edges------------------------------
                 var svertexArray = Array((1L,("1",1)),(2L,("2",4)),(3L,("3",4)),(4L,("4",5)),(5L,("5",2)),(6L,("6",8)),(7L,("7",1)),(8L,("8",8)),(9L,("9",3)),(10L,("10",7)),(11L,("11",9)),(12L,("12",3)),(13L,("13",6)),(14L,("14",8)),(15L,("15",8)),(16L,("16",7)),(17L,("17",5)),(18L,("18",8)),(19L,("19",8)),(20L,("20",5)))
                 val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
@@ -479,12 +478,18 @@ Edge(8,7,(6,1000)))
 		val Source = (14, 6)
 		val Destination = (4, 1)
 
-		val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
-		val f = lp.SolveMCFinLPResult()
-
-		println("Optimal Solution = " + f)
-		val duration = (System.nanoTime - t1) / 1e9d
-		println("Duration: " + duration)
+		val pw = new PrintWriter(new File("Ergebnisse8of20.txt" ))
+		for(i <- 1 until 19) {
+			val numPartitions : Array[Int] = Array(4, 4, 4, 32, 32, 32, 128, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024)
+			val t1 = System.nanoTime
+			val lp = new SolveMCF3(gs, gv, Source, Destination, numPartitions(i-1), sc=sc)
+			val f = lp.SolveMCFinLPResult()
+			println("Optimal Solution = " + f)
+			val duration = (System.nanoTime - t1) / 1e9d
+			println("Duration: " + duration)
+			pw.write("Duration" + i + " with Partitions " + numPartitions(i-1) + ": " + duration + "\n")
+		}
+		pw.close
 	}
 }
 		
