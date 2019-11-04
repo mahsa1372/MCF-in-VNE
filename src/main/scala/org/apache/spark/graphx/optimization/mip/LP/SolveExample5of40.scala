@@ -13,7 +13,7 @@ package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
-
+import java.io._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
@@ -22,10 +22,9 @@ import org.apache.spark.graphx.lib
 object SolveExample5of40 extends Serializable {
 
         def main(args: Array[String]): Unit = {
-                val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")
+                val conf = new SparkConf().setAppName("Solve MCF 5 of 40 with Simplex")
                 val sc = new SparkContext(conf)
 
-		val t1 = System.nanoTime
                 // --------------------Define the substrate network using nodes and edges------------------------------
                 var svertexArray = Array((1L,("1",3)),(2L,("2",9)),(3L,("3",0)),(4L,("4",4)),(5L,("5",1)),(6L,("6",4)),(7L,("7",3)),(8L,("8",3)),(9L,("9",9)),(10L,("10",9)),(11L,("11",2)),(12L,("12",7)),(13L,("13",4)),(14L,("14",6)),(15L,("15",1)),(16L,("16",1)),(17L,("17",9)),(18L,("18",4)),(19L,("19",9)),(20L,("20",6)),(21L,("21",4)),(22L,("22",8)),(23L,("23",0)),(24L,("24",1)),(25L,("25",4)),(26L,("26",1)),(27L,("27",5)),(28L,("28",5)),(29L,("29",0)),(30L,("30",9)),(31L,("31",5)),(32L,("32",6)),(33L,("33",5)),(34L,("34",0)),(35L,("35",7)),(36L,("36",4)),(37L,("37",9)),(38L,("38",2)),(39L,("39",5)),(40L,("40",1)))
                 val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
@@ -1623,12 +1622,18 @@ Edge(40,39,(10,1000)))
 		val Source = (18, 4)
 		val Destination = (22, 2)
 
-		val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
-		val f = lp.SolveMCFinLPResult()
-
-		println("Optimal Solution = " + f)
-		val duration = (System.nanoTime - t1) / 1e9d
-		println("Duration: " + duration)
+		val pw = new PrintWriter(new File("Ergebnisse50f40.txt" ))
+		for(i <- 1 until 19) {
+			val numPartitions : Array[Int] = Array(4, 4, 4, 32, 32, 32, 128, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024)
+			val t1 = System.nanoTime
+			val lp = new SolveMCF3(gs, gv, Source, Destination, numPartitions(i-1), sc=sc)
+			val f = lp.SolveMCFinLPResult()
+			println("Optimal Solution = " + f)
+			val duration = (System.nanoTime - t1) / 1e9d
+			println("Duration: " + duration)
+			pw.write("Duration" + i + " with Partitions " + numPartitions(i-1) + ": " + duration + "\n")
+		}
+		pw.close
 	}
 }
 		

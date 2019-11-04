@@ -27,10 +27,9 @@ import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
 
-class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext) extends Serializable {
+class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], numPartitions: Int, @transient sc: SparkContext) extends Serializable {
 
                 // --------------------Define matrix of constraints and vector of costs--------------------------------
-		private val numPartitions : Int = 512				// number of partitions
                 private val m = gv.vertices.collect.size                        // number of virtual nodes
                 private val n = gs.vertices.collect.size                        // number of substrate nodes
                 private val mm = m*(m-1)                                        // number of virtual links

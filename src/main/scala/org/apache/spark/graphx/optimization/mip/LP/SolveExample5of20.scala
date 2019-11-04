@@ -13,7 +13,7 @@ package org.apache.spark.mllib.optimization.mip.lp
 
 import scala.math.abs
 import scala.util.control.Breaks.{breakable, break}
-
+import java.io._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.graphx._
 import org.apache.spark.rdd._
@@ -25,7 +25,6 @@ object SolveExample5of20 extends Serializable {
                 val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")
                 val sc = new SparkContext(conf)
 
-		val t1 = System.nanoTime
                 // --------------------Define the substrate network using nodes and edges------------------------------
                 var svertexArray = Array((1L,("1",1)),(2L,("2",8)),(3L,("3",1)),(4L,("4",5)),(5L,("5",0)),(6L,("6",5)),(7L,("7",3)),(8L,("8",9)),(9L,("9",0)),(10L,("10",8)),(11L,("11",7)),(12L,("12",2)),(13L,("13",2)),(14L,("14",9)),(15L,("15",8)),(16L,("16",8)),(17L,("17",5)),(18L,("18",7)),(19L,("19",8)),(20L,("20",7)))
                 val svertexRDD: RDD[(VertexId, (String, Int))] = sc.parallelize(svertexArray)
@@ -443,12 +442,18 @@ object SolveExample5of20 extends Serializable {
 		val Source = (17, 5)
 		val Destination = (3, 2)
 
-		val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc)
-		val f = lp.SolveMCFinLPResult()
-
-		println("Optimal Solution = " + f)
-		val duration = (System.nanoTime - t1) / 1e9d
-		println("Duration: " + duration)
+		val pw = new PrintWriter(new File("Ergebnisse5of20.txt" ))
+		for(i <- 1 until 29) {
+			val numPartitions : Array[Int] = Array(4, 4, 4, 4, 32, 32, 32, 32, 64, 64, 64, 64, 128, 128, 128, 128, 256, 256, 256, 256, 512, 512, 512, 512, 1024, 1024, 1024, 1024)
+			val t1 = System.nanoTime
+			val lp = new SolveMCF3(gs, gv, Source, Destination, numPartitions(i-1), sc=sc)
+			val f = lp.SolveMCFinLPResult()
+			println("Optimal Solution = " + f)
+			val duration = (System.nanoTime - t1) / 1e9d
+			println("Duration: " + duration)
+			pw.write("Duration" + i + " with Partitions " + numPartitions(i-1) + ": " + duration + "\n")
+		}
+		pw.close
 	}
 }
 		
