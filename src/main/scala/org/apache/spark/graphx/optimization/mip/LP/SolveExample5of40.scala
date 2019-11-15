@@ -1623,8 +1623,9 @@ Edge(40,39,(10,1000)))
 		val Destination = (22, 2)
 
 		val pw = new PrintWriter(new File("Ergebnisse50f40.txt" ))
-		for(i <- 1 until 19) {
-			val numPartitions : Array[Int] = Array(4, 4, 4, 32, 32, 32, 128, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024)
+		for(i <- 1 until 4) {
+			val numPartitions : Array[Int] = Array(640, 768, 896)
+			//val numPartitions : Array[Int] = Array(4, 4, 4, 32, 32, 32, 128, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024)
 			val t1 = System.nanoTime
 			val lp = new SolveMCF3(gs, gv, Source, Destination, numPartitions(i-1), sc=sc)
 			val f = lp.SolveMCFinLPResult()

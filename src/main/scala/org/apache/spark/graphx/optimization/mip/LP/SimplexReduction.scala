@@ -80,12 +80,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
 			if (b(i) >= 0) {
 				x_B(i) = N + i
 			} else {
-				val COld = C
+				//val COld = C
 				ca += 1
 				x_B(i) = nA +ca
 				C = entrywiseSum(C, aa.map{case(s,t) => s(i)}.glom.map(new DenseVector(_)))
-				C.persist().count
-				COld.unpersist()
+				//C.persist().count
+				//COld.unpersist()
 				F += b(i)
 			}
 		}
@@ -144,12 +144,12 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
 		val Col = C.flatMap(_.values).collect
 		val Row = aa.map{case(s,t) => s.argmax}.collect
 		for (j <- 0 until N if x_B contains j) {
-			val COld = C
+			//val COld = C
 			val pivotRow = Row(j)
 			val pivotCol = Col(j)
 			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
-			C.cache().count
-			COld.unpersist()
+			//C.cache().count
+			//COld.unpersist()
 			F -= B(pivotRow) * pivotCol
 		}
 	}
@@ -220,18 +220,21 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
 
 		print("Solve:")
                 initializeBasis ()
-
+//		var aaOld = aa
                 if (A > 0) {
                         println ("solve:  Phase I: Function: Solve1")
                 	var k = -1                                              // the leaving variable (row)
                 	var l = -1                                              // the entering variable (column)
+			var t : Array[Double] = C.flatMap(_.values).collect
 
                 	breakable {
                        		for (it <- 1 to MAX_ITER) {				
-					val aaOld= aa
+					//if(it % 5 == 0) {
+					//	aaOld = aa
+					//}
 					val COld = C
 					//entering
-					val t : Array[Double] = C.flatMap(_.values).collect
+					//val t : Array[Double] = C.flatMap(_.values).collect
 					val l : Int = argmaxPos(t)
 					if (l == -1) break
 					//leaving
@@ -260,9 +263,11 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
 					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 					F = F - B(k) * pivotC
 					x_B(k) = l
-					aa.cache().count
-					C.cache().count
-					aaOld.unpersist()
+					//if(it % 5 == 0) {
+					//	aa.persist(StorageLevel.DISK_ONLY).count
+					//	aaOld.unpersist()
+					//}
+					t = C.cache().flatMap(_.values).collect
 					COld.unpersist()                                   // solve the Phase I problem
 				}
 			}
@@ -278,13 +283,15 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
                 println ("solve: Phase II: Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
-
+		var t : Array[Double] = CC.flatMap(_.values).collect
                 breakable {
                    	for (it <- 1 to MAX_ITER) {				
-				val aaOld= AA
-				val COld = CC
+				//if(it % 5 == 0) {
+                                //	aaOld = AA
+                                //}
+                                val COld = CC
 				//entering
-				val t : Array[Double] = CC.flatMap(_.values).collect
+				//val t : Array[Double] = CC.flatMap(_.values).collect
 				val l : Int = argmaxPos(t)
 				if (l == -1) break
 				//leaving
@@ -313,9 +320,11 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, n: Int, @tr
 				CC = entrywiseDif(CC,AA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 				F = F - B(k) * pivotC
 				x_B(k) = l
-				AA.cache().count
-				CC.cache().count
-				aaOld.unpersist()
+				//if(it % 5 == 0) {
+				//	AA.persist(StorageLevel.DISK_ONLY).count
+				//	aaOld.unpersist()
+                                //}
+				t = CC.cache().flatMap(_.values).collect
 				COld.unpersist()                                   // solve the Phase I problem
 			}
 		}
