@@ -103,7 +103,7 @@ object SolveRandom extends Serializable {
 		gv.vertices.collect.foreach(println(_))
 		gv.edges.collect.foreach(println(_))
 
-                val lp = new SolveMCF3(gs, gv, Source, Destination,2, sc=sc)
+                val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, 2)
 //                val x = lp.SolveMCFinLP()
                 val f = lp.SolveMCFinLPResult()
 

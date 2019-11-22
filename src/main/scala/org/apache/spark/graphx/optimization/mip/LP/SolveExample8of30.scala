@@ -973,7 +973,7 @@ Edge(8,7,(1,1000)))
 		for(i <- 1 until 19) {
 			val numPartitions : Array[Int] = Array(4, 4, 4, 32, 32, 32, 128, 128, 128, 256, 256, 256, 512, 512, 512, 1024, 1024, 1024)
 			val t1 = System.nanoTime
-			val lp = new SolveMCF3(gs, gv, Source, Destination, numPartitions(i-1), sc=sc)
+			val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))
 			val f = lp.SolveMCFinLPResult()
 			println("Optimal Solution = " + f)
 			val duration = (System.nanoTime - t1) / 1e9d

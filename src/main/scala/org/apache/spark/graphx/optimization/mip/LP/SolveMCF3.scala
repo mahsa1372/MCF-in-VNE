@@ -27,7 +27,7 @@ import org.apache.spark.mllib.linalg.DenseMatrix
 import org.apache.spark.mllib.linalg.Matrices
 import org.apache.spark.mllib.optimization.mip.lp.VectorSpace._
 
-class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], numPartitions: Int, @transient sc: SparkContext) extends Serializable {
+class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (Int, Int)], Source: Tuple2[Int, Int], Destination: Tuple2[Int, Int], @transient sc: SparkContext, numPartitions: Int) extends Serializable {
 
                 // --------------------Define matrix of constraints and vector of costs--------------------------------
                 private val m = gv.vertices.collect.size                        // number of virtual nodes
@@ -140,7 +140,7 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
 		private val B: DenseVector = new DenseVector(b)
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
-		val lp = new SimplexReduction(A, B, C, numPartitions, sc=sc)
+		val lp = new SimplexReduction(A, B, C, sc=sc, numPartitions)
 		def SolveMCFinLP () :Array[Double] ={
 			val x = lp.solve()
 			x
