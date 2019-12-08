@@ -663,8 +663,8 @@ Edge(25,24,(3,1000)))
 		val Destination = (9, 4)
 
 		val pw = new PrintWriter(new File("Ergebnisse5of25.txt" ))
-		for(i <- 1 until 2) {
-			val numPartitions : Array[Int] = Array(1)
+		for(i <- 1 until 3) {
+			val numPartitions : Array[Int] = Array(2, 2)
 			//val numPartitions : Array[Int] = Array(4, 4, 4, 4, 32, 32, 32, 32, 64, 64, 64, 64, 96, 96, 96, 96, 128, 128, 128, 128, 256, 256, 256, 256, 512, 512, 512, 512, 1024, 1024, 1024, 1024)
 			val t1 = System.nanoTime
 			val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))

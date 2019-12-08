@@ -29,7 +29,7 @@ object SolveRandom extends Serializable {
 		val t1 = System.nanoTime
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 45
+		val r = 42
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -104,8 +104,8 @@ object SolveRandom extends Serializable {
 //		gv.edges.collect.foreach(println(_))
 		
 		val pw = new PrintWriter(new File("Ergebnisse5of45.txt" ))
-                for(i <- 1 until 8) {
-                        val numPartitions : Array[Int] = Array(320, 512, 600, 640, 700, 800, 1000)
+                for(i <- 1 until 3) {
+                        val numPartitions : Array[Int] = Array(16, 16)
                         val t1 = System.nanoTime
                         val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))
                         val f = lp.SolveMCFinLPResult()
