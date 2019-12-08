@@ -110,6 +110,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
         // ------------------------------Solve the LP minimization problem using two phases--------------------------------------
         def solve (): Array[Double] = {
 
+		val t1 = System.nanoTime
+
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
 
@@ -127,17 +129,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 
 			breakable {
 				for (it <- 1 to MAX_ITER) {				
-					//if(it % 5 == 0) {
-					//	aaOld = aa
-					//}
+					val t3 = System.nanoTime
 					val COld = C
 					//entering
-					//val t : Array[Double] = C.flatMap(_.values).collect
 					val l : Int = argmaxPos(t)
 					if (l == -1) break
 					//leaving
 					var k = -1
-					val pivotColumn : DenseVector = aa.cache.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+					val pivotColumn : DenseVector = aa.persist(StorageLevel.MEMORY_ONLY).filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 					aaOld.unpersist()
 					aaOld = aa
 					for (i <- 0 until M if pivotColumn(i) > 0) {
@@ -149,8 +148,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 					if (k == -1) {println("The solution is UNBOUNDED") 
 						break}
 					//update
-					print("pivot: entering = " + l)
-					println(" leaving = " + k)
+					//print("pivot: entering = " + l)
+					//println(" leaving = " + k)
 					val pivot = pivotColumn(k)
 					B.toArray(k) = B(k) / pivot
 					pivotColumn.toArray(k) = 1.0
@@ -163,12 +162,10 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 					F = F - B(k) * pivotC
 					x_B(k) = l
-					//if(it % 5 == 0) {
-					//	aa.persist(StorageLevel.DISK_ONLY).count
-					//	aaOld.unpersist()
-					//}
-					t = C.cache().flatMap(_.values).collect
-					COld.unpersist()                                   // solve the Phase I problem
+					t = C.persist(StorageLevel.MEMORY_ONLY).flatMap(_.values).collect
+					COld.unpersist()
+					val ddd = (System.nanoTime - t3) / 1e9d
+					println(ddd)
 				}
 			}
 			x = solution
@@ -179,25 +176,21 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		var AA: DMatrix = sc.parallelize(aa.collect,n)
 		aa.unpersist()
 		var CC: DVector = sc.parallelize(C.collect,n)
-//		var CC = C
 		C.unpersist()
                 println ("solve: Phase II: Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
 		var t : Array[Double] = CC.flatMap(_.values).collect
                 breakable {
-                   	for (it <- 1 to MAX_ITER) {				
-				//if(it % 5 == 0) {
-                                //	aaOld = AA
-                                //}
+			for (it <- 1 to MAX_ITER) {		
+				val t2 = System.nanoTime		
                                 val COld = CC
 				//entering
-				//val t : Array[Double] = CC.flatMap(_.values).collect
 				val l : Int = argmaxPos(t)
 				if (l == -1) break
 				//leaving
 				var k = -1
-				val pivotColumn : DenseVector = AA.cache.filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+				val pivotColumn : DenseVector = AA.persist(StorageLevel.MEMORY_ONLY).filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 				aaOld.unpersist()
                                 aaOld = AA
 				for (i <- 0 until M if pivotColumn(i) > 0) {
@@ -209,8 +202,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 				if (k == -1) {println("The solution is UNBOUNDED") 
 					break}
 				//update
-				print("pivot: entering = " + l)
-				println(" leaving = " + k)
+				//print("pivot: entering = " + l)
+				//println(" leaving = " + k)
 				val pivot = pivotColumn(k)
 				B.toArray(k) = B(k) / pivot
 				pivotColumn.toArray(k) = 1.0
@@ -223,16 +216,18 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 				CC = entrywiseDif(CC,AA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 				F = F - B(k) * pivotC
 				x_B(k) = l
-				//if(it % 5 == 0) {
-				//	AA.persist(StorageLevel.DISK_ONLY).count
-				//	aaOld.unpersist()
-                                //}
-				t = CC.cache().flatMap(_.values).collect
-				COld.unpersist()                                   // solve the Phase I problem
+				t = CC.persist(StorageLevel.MEMORY_ONLY).flatMap(_.values).collect
+				COld.unpersist() 
+				val dd = (System.nanoTime - t2) / 1e9d
+				println(dd)
 			}
 		}
 		x = solution
                 f = result (x)
+	
+		val DurationSolve = (System.nanoTime - t1) / 1e9d
+		println("Duration of Solve Function : "+ DurationSolve)
+
 		println("F:" + F)
                 x
         }

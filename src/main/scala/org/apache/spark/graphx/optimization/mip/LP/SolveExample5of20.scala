@@ -22,7 +22,7 @@ import org.apache.spark.graphx.lib
 object SolveExample5of20 extends Serializable {
 
         def main(args: Array[String]): Unit = {
-                val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex")
+                val conf = new SparkConf().setAppName("Solve MCF 5 of 20 with Simplex").set("spark.storage.memoryFraction", "0.5")
                 val sc = new SparkContext(conf)
 
                 // --------------------Define the substrate network using nodes and edges------------------------------
@@ -443,8 +443,8 @@ object SolveExample5of20 extends Serializable {
 		val Destination = (3, 2)
 
 		val pw = new PrintWriter(new File("Ergebnisse5of20.txt" ))
-		for(i <- 1 until 4) {
-			val numPartitions : Array[Int] = Array(1, 2, 4)
+		for(i <- 1 until 3) {
+			val numPartitions : Array[Int] = Array(1, 1)
 			//val numPartitions : Array[Int] = Array(4, 4, 4, 4, 32, 32, 32, 32, 64, 64, 64, 64, 96, 96, 96, 96, 128, 128, 128, 128, 256, 256, 256, 256, 512, 512, 512, 512, 1024, 1024, 1024, 1024)
 			val t1 = System.nanoTime
 			val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))
