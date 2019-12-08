@@ -110,6 +110,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
         // ------------------------------Solve the LP minimization problem using two phases--------------------------------------
         def solve (): Array[Double] = {
 
+		val t1 = System.nanoTime
+
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
 
@@ -127,12 +129,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 
 			breakable {
 				for (it <- 1 to MAX_ITER) {				
-					//if(it % 5 == 0) {
-					//	aaOld = aa
-					//}
 					val COld = C
 					//entering
-					//val t : Array[Double] = C.flatMap(_.values).collect
 					val l : Int = argmaxPos(t)
 					if (l == -1) break
 					//leaving
@@ -163,12 +161,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 					F = F - B(k) * pivotC
 					x_B(k) = l
-					//if(it % 5 == 0) {
-					//	aa.persist(StorageLevel.DISK_ONLY).count
-					//	aaOld.unpersist()
-					//}
 					t = C.cache().flatMap(_.values).collect
-					COld.unpersist()                                   // solve the Phase I problem
+					COld.unpersist()
 				}
 			}
 			x = solution
@@ -179,20 +173,15 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		var AA: DMatrix = sc.parallelize(aa.collect,n)
 		aa.unpersist()
 		var CC: DVector = sc.parallelize(C.collect,n)
-//		var CC = C
 		C.unpersist()
                 println ("solve: Phase II: Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
 		var t : Array[Double] = CC.flatMap(_.values).collect
                 breakable {
-                   	for (it <- 1 to MAX_ITER) {				
-				//if(it % 5 == 0) {
-                                //	aaOld = AA
-                                //}
+			for (it <- 1 to MAX_ITER) {				
                                 val COld = CC
 				//entering
-				//val t : Array[Double] = CC.flatMap(_.values).collect
 				val l : Int = argmaxPos(t)
 				if (l == -1) break
 				//leaving
@@ -223,16 +212,16 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 				CC = entrywiseDif(CC,AA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 				F = F - B(k) * pivotC
 				x_B(k) = l
-				//if(it % 5 == 0) {
-				//	AA.persist(StorageLevel.DISK_ONLY).count
-				//	aaOld.unpersist()
-                                //}
 				t = CC.cache().flatMap(_.values).collect
-				COld.unpersist()                                   // solve the Phase I problem
+				COld.unpersist() 
 			}
 		}
 		x = solution
                 f = result (x)
+	
+		val DurationSolve = (System.nanoTime - t1)
+		println("Duration of Solve Functio : "+ DurationSolve)
+
 		println("F:" + F)
                 x
         }
