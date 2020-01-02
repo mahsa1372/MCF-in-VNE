@@ -134,8 +134,9 @@ class SolveMCF3 (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), 
                         }
                 }
 
+//		private val A: DMatrix = sc.parallelize("a.txt",numPartitions).map(Vectors.dense(_)).zipWithIndex
+//		private val C: DVector = sc.parallelize("c.txt",numPartitions).map("," => .toDouble).glom.map(new DenseVector(_))
 		private val A: DMatrix = sc.parallelize(a.transpose(s => s),numPartitions).map(Vectors.dense(_)).zipWithIndex
-//		private val C: Vector = new DenseVector(c)
 		private val C: DVector = sc.parallelize(c,numPartitions).glom.map(new DenseVector(_))
 		private val B: DenseVector = new DenseVector(b)
 

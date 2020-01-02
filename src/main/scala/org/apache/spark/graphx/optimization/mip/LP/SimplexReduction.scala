@@ -66,6 +66,9 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 	private var F : Double = 0.0
 	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N),n).glom.map(new DenseVector(_))
 
+	private val CHECKPOINT_DIR = "/users/mhs_nrz/spark-master/"
+	sc.setCheckpointDir(CHECKPOINT_DIR)
+
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
                 B.toArray(i) = b(i) * flag                                      // col b: limit/RHS vector b
@@ -78,35 +81,14 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 			if (b(i) >= 0) {
 				x_B(i) = N + i
 			} else {
-				//val COld = C
 				ca += 1
 				x_B(i) = nA +ca
 				C = entrywiseSum(C, aa.map{case(s,t) => s(i)}.glom.map(new DenseVector(_)))
-				//C.persist().count
-				//COld.unpersist()
 				F += b(i)
 			}
 		}
 	}	
 		
-        // ------------------------------Remove the artificial variables---------------------------------------------------------
-	def removeA () {
-		println("Function: RemoveArtificials")
-		C = c.map(s => neg(s))
-		F = 0.0
-		val Col = C.flatMap(_.values).collect
-		val Row = aa.map{case(s,t) => s.argmax}.collect
-		for (j <- 0 until N if x_B contains j) {
-			//val COld = C
-			val pivotRow = Row(j)
-			val pivotCol = Col(j)
-			C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
-			//C.cache().count
-			//COld.unpersist()
-			F -= B(pivotRow) * pivotCol
-		}
-	}
-
         // ------------------------------Solve the LP minimization problem using two phases--------------------------------------
         def solve (): Array[Double] = {
 
@@ -115,30 +97,44 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
 
+		var aM : DMatrix = aa
+		var CV : DVector = C
+
                 if (A > 0) { }
                 else C = c.map(s => neg(s))				// set cost row to given cost vector
 
 		print("Solve:")
                 initializeBasis ()
 		var aaOld = aa
+		aa.localCheckpoint()
+		C.localCheckpoint()
+		var AAA: DMatrix = sc.parallelize(aa.collect,n)
+		AAA.repartition(n).persist()
+                aa.unpersist()
+		var CCC: DVector = sc.parallelize(C.collect,n)
+		C.unpersist()
+//		var aaOld = AAA
+
                 if (A > 0) {
                         println ("solve:  Phase I: Function: Solve1")
 			var k = -1                                              // the leaving variable (row)
 			var l = -1                                              // the entering variable (column)
-			var t : Array[Double] = C.flatMap(_.values).collect
+			var t : Array[Double] = CCC.flatMap(_.values).collect
 
 			breakable {
 				for (it <- 1 to MAX_ITER) {				
 					val t3 = System.nanoTime
-					val COld = C
+					AAA.localCheckpoint()
+					CCC.localCheckpoint()
+					val COld = CCC
 					//entering
 					val l : Int = argmaxPos(t)
 					if (l == -1) break
 					//leaving
 					var k = -1
-					val pivotColumn : DenseVector = aa.persist(StorageLevel.MEMORY_ONLY).filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+					val pivotColumn : DenseVector = AAA.cache().filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 					aaOld.unpersist()
-					aaOld = aa
+					aaOld = AAA
 					for (i <- 0 until M if pivotColumn(i) > 0) {
 						if (k == -1) k = i
 						else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -154,15 +150,15 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 					B.toArray(k) = B(k) / pivot
 					pivotColumn.toArray(k) = 1.0
 					val test = Vectors.dense(pivotColumn.toArray)
-					aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+					AAA = AAA.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
 					for (i <- 0 until M if i != k) {
 						B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 					}
 					val pivotC = t(l)
-					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+					CCC = entrywiseDif(CCC,AAA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
 					F = F - B(k) * pivotC
 					x_B(k) = l
-					t = C.persist(StorageLevel.MEMORY_ONLY).flatMap(_.values).collect
+					t = CCC.cache().flatMap(_.values).collect
 					COld.unpersist()
 					val ddd = (System.nanoTime - t3) / 1e9d
 					println(ddd)
@@ -170,19 +166,50 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 			}
 			x = solution
                         f = result (x)
-                        removeA ()
-                }
+                        //removeA ()
+			println("Function: RemoveArtificials")
+			CCC = c.map(s => neg(s))
+			
+			AAA.localCheckpoint()
+			CCC.localCheckpoint()
+			aM = sc.parallelize(AAA.collect,n)
+			aM.repartition(n).persist()
+			AAA.unpersist()
+			CV = sc.parallelize(CCC.collect,n)
+			CCC.unpersist()
+			aM.localCheckpoint()
+			val Row = aM.map{case(s,t) => s.argmax}.collect
 
-		var AA: DMatrix = sc.parallelize(aa.collect,n)
+			F = 0.0
+			var Col = CV.flatMap(_.values).collect
+			for (j <- 0 until N if x_B contains j) {
+				CV.localCheckpoint()
+				val COld = CV
+				val pivotRow = Row(j)
+				val pivotCol = Col(j)
+				CV = entrywiseDif(CV, aM.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
+				F -= B(pivotRow) * pivotCol
+				Col = CV.cache().flatMap(_.values).collect
+				COld.unpersist()
+			}
+		}
+
+		aaOld = aM
+		aM.localCheckpoint()
+                CV.localCheckpoint()
+		var AA: DMatrix = sc.parallelize(aM.collect,n)
+		AA.repartition(n).persist()
 		aa.unpersist()
-		var CC: DVector = sc.parallelize(C.collect,n)
-		C.unpersist()
+		var CC: DVector = sc.parallelize(CV.collect,n)
+		CV.unpersist()
                 println ("solve: Phase II: Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
 		var t : Array[Double] = CC.flatMap(_.values).collect
                 breakable {
-			for (it <- 1 to MAX_ITER) {		
+			for (it <- 1 to MAX_ITER) {
+				AA.localCheckpoint()
+				CC.localCheckpoint()	
 				val t2 = System.nanoTime		
                                 val COld = CC
 				//entering
