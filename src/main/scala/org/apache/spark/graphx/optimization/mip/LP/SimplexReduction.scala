@@ -54,8 +54,11 @@ import org.apache.spark.mllib.optimization.mip.lp.SimplexReduction.argmaxPos
 class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient sc: SparkContext, n: Int) extends Serializable {
 
         // ------------------------------Initialize the basic variables from input-----------------------------------------------
+	private val CHECKPOINT_DIR = "/users/mhs_nrz/spark-master/"
+        sc.setCheckpointDir(CHECKPOINT_DIR)
+
 	private val M = aa.first._1.size
-	private val N = aa.count.toInt
+	private val N = aa.cache().count.toInt
 	private val A = countNeg(b)
 	private val nA = M + N
 	private val MAX_ITER = 200 * N
@@ -65,9 +68,6 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 	private var B : DenseVector = new DenseVector(Array.ofDim [Double] (M))
 	private var F : Double = 0.0
 	private var C : DVector = sc.parallelize(Array.ofDim [Double] (N),n).glom.map(new DenseVector(_))
-
-	private val CHECKPOINT_DIR = "/users/mhs_nrz/spark-master/"
-	sc.setCheckpointDir(CHECKPOINT_DIR)
 
         for (i <- 0 until M) {
                 flag = if (b(i) < 0.0) -1.0 else 1.0
@@ -97,8 +97,8 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
                 var x: Array[Double] = null                             // the decision variables
                 var f = Double.PositiveInfinity                         // worst possible value for minimization
 
-		var aM : DMatrix = aa
-		var CV : DVector = C
+//		var aM : DMatrix = aa
+//		var CV : DVector = C
 
                 if (A > 0) { }
                 else C = c.map(s => neg(s))				// set cost row to given cost vector
@@ -106,35 +106,33 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 		print("Solve:")
                 initializeBasis ()
 		var aaOld = aa
-		aa.localCheckpoint()
-		C.localCheckpoint()
-		var AAA: DMatrix = sc.parallelize(aa.collect,n)
-		AAA.repartition(n).persist()
-                aa.unpersist()
-		var CCC: DVector = sc.parallelize(C.collect,n)
-		C.unpersist()
+//		var AAA: DMatrix = sc.parallelize(aa.collect,n)
+//		AAA.repartition(n).persist()
+//		aa.unpersist()
+//		var CCC: DVector = sc.parallelize(C.collect,n)
+//		C.unpersist()
 //		var aaOld = AAA
 
                 if (A > 0) {
                         println ("solve:  Phase I: Function: Solve1")
 			var k = -1                                              // the leaving variable (row)
 			var l = -1                                              // the entering variable (column)
-			var t : Array[Double] = CCC.flatMap(_.values).collect
+			var t : Array[Double] = C.flatMap(_.values).collect
 
 			breakable {
 				for (it <- 1 to MAX_ITER) {				
 					val t3 = System.nanoTime
-					AAA.localCheckpoint()
-					CCC.localCheckpoint()
-					val COld = CCC
+					//aa.localCheckpoint()
+					//C.localCheckpoint()
+					val COld = C
 					//entering
 					val l : Int = argmaxPos(t)
 					if (l == -1) break
 					//leaving
 					var k = -1
-					val pivotColumn : DenseVector = AAA.cache().filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+					val pivotColumn : DenseVector = aa.cache().filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 					aaOld.unpersist()
-					aaOld = AAA
+					aaOld = aa
 					for (i <- 0 until M if pivotColumn(i) > 0) {
 						if (k == -1) k = i
 						else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -150,15 +148,17 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 					B.toArray(k) = B(k) / pivot
 					pivotColumn.toArray(k) = 1.0
 					val test = Vectors.dense(pivotColumn.toArray)
-					AAA = AAA.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+					aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+					aa.localCheckpoint()
 					for (i <- 0 until M if i != k) {
 						B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 					}
 					val pivotC = t(l)
-					CCC = entrywiseDif(CCC,AAA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+					C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+					C.localCheckpoint()
 					F = F - B(k) * pivotC
 					x_B(k) = l
-					t = CCC.cache().flatMap(_.values).collect
+					t = C.cache().flatMap(_.values).collect
 					COld.unpersist()
 					val ddd = (System.nanoTime - t3) / 1e9d
 					println(ddd)
@@ -168,58 +168,59 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
                         f = result (x)
                         //removeA ()
 			println("Function: RemoveArtificials")
-			CCC = c.map(s => neg(s))
-			
-			AAA.localCheckpoint()
-			CCC.localCheckpoint()
-			aM = sc.parallelize(AAA.collect,n)
-			aM.repartition(n).persist()
-			AAA.unpersist()
-			CV = sc.parallelize(CCC.collect,n)
-			CCC.unpersist()
-			aM.localCheckpoint()
-			val Row = aM.map{case(s,t) => s.argmax}.collect
+			C = c.map(s => neg(s))
+
+//			AAA.localCheckpoint()
+//			CCC.localCheckpoint()
+//			aM = sc.parallelize(AAA.collect,n)
+//			aM.repartition(n).persist()
+//			AAA.unpersist()
+//			CV = sc.parallelize(CCC.collect,n)
+//			CCC.unpersist()
+//			aM.localCheckpoint()
+			val Row = aa.map{case(s,t) => s.argmax}.collect
 
 			F = 0.0
-			var Col = CV.flatMap(_.values).collect
+
+			var Col = C.flatMap(_.values).collect
 			for (j <- 0 until N if x_B contains j) {
-				CV.localCheckpoint()
-				val COld = CV
+				C.localCheckpoint()
+				val COld = C
 				val pivotRow = Row(j)
 				val pivotCol = Col(j)
-				CV = entrywiseDif(CV, aM.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
+				C = entrywiseDif(C, aa.map{case(a,b) => a(pivotRow)*pivotCol}.glom.map(new DenseVector(_)))
 				F -= B(pivotRow) * pivotCol
-				Col = CV.cache().flatMap(_.values).collect
+				Col = C.cache().flatMap(_.values).collect
 				COld.unpersist()
 			}
 		}
 
-		aaOld = aM
-		aM.localCheckpoint()
-                CV.localCheckpoint()
-		var AA: DMatrix = sc.parallelize(aM.collect,n)
-		AA.repartition(n).persist()
-		aa.unpersist()
-		var CC: DVector = sc.parallelize(CV.collect,n)
-		CV.unpersist()
+//		aaOld = aM
+//		aM.localCheckpoint()
+//		CV.localCheckpoint()
+//		var AA: DMatrix = sc.parallelize(aM.collect,n)
+//		AA.repartition(n).persist()
+//		aM.unpersist()
+//		var CC: DVector = sc.parallelize(CV.collect,n)
+//		CV.unpersist()
                 println ("solve: Phase II: Function: Solve1")
                 var k = -1                                              // the leaving variable (row)
                 var l = -1                                              // the entering variable (column)
-		var t : Array[Double] = CC.flatMap(_.values).collect
+		var t : Array[Double] = C.flatMap(_.values).collect
                 breakable {
 			for (it <- 1 to MAX_ITER) {
-				AA.localCheckpoint()
-				CC.localCheckpoint()	
+				//AA.localCheckpoint()
+				//CC.localCheckpoint()	
 				val t2 = System.nanoTime		
-                                val COld = CC
+                                val COld = C
 				//entering
 				val l : Int = argmaxPos(t)
 				if (l == -1) break
 				//leaving
 				var k = -1
-				val pivotColumn : DenseVector = AA.persist(StorageLevel.MEMORY_ONLY).filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
+				val pivotColumn : DenseVector = aa.cache().filter{case (a,b) => (b==l)}.map{case(s,t) => s.toDense}.reduce((i,j) => j)
 				aaOld.unpersist()
-                                aaOld = AA
+                                aaOld = aa
 				for (i <- 0 until M if pivotColumn(i) > 0) {
 					if (k == -1) k = i
 					else if (B(i) / pivotColumn(i) <= B(k) / pivotColumn(k)) {
@@ -235,15 +236,17 @@ class SimplexReduction (var aa: DMatrix, b: DenseVector, c: DVector, @transient 
 				B.toArray(k) = B(k) / pivot
 				pivotColumn.toArray(k) = 1.0
 				val test = Vectors.dense(pivotColumn.toArray)
-				AA = AA.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+				aa = aa.map{case(s,t) => (diff(s, mul(test,s(k)),k,pivot),t)}
+				aa.localCheckpoint()
 				for (i <- 0 until M if i != k) {
 					B.toArray(i) = B(i) - B(k) * pivotColumn(i)
 				}
 				val pivotC = t(l)
-				CC = entrywiseDif(CC,AA.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+				C = entrywiseDif(C,aa.map{case(a,b) => a(k)*pivotC}.glom.map(new DenseVector(_)))
+				C.localCheckpoint()
 				F = F - B(k) * pivotC
 				x_B(k) = l
-				t = CC.persist(StorageLevel.MEMORY_ONLY).flatMap(_.values).collect
+				t = C.cache().flatMap(_.values).collect
 				COld.unpersist() 
 				val dd = (System.nanoTime - t2) / 1e9d
 				println(dd)
