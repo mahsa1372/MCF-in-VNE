@@ -4,23 +4,9 @@ import org.apache.spark.mllib.linalg.{DenseVector, Vector}
 import org.apache.spark.rdd.RDD
 
 /**
-  * A vector space trait with support for computing linear combinations and inner products.
-  *
-  * @tparam X A type representing a vector in the vector space.
+  * @param X A type representing a vector in the vector space.
   */
 trait VectorSpace[X] {
-
-  /**
-    * Compute a linear combination of two vectors alpha * a + beta * b.
-    *
-    * @param alpha The first scalar coefficient.
-    * @param a The first vector.
-    * @param beta The second scalar coefficient.
-    * @param b The second vector.
-    *
-    * @return The computed linear combination.
-    */
-  def combine(a: X, b: X): X
 
 }
 
@@ -34,8 +20,8 @@ object VectorSpace {
   type DVector = RDD[DenseVector]
 
   /**
-    * A distributed two dimensional matrix stored as an RDD of mllib.linalg Vectors, where each
-    * Vector represents a row of the matrix. The Vectors may be dense or sparse.
+    * A distributed two dimensional matrix stored as an RDD of mllib.linalg Vectors plus index, where each
+    * Vector represents a column of the matrix. The Vectors may be dense or sparse.
     */
   type DMatrix = RDD[(Vector, Long)]
 

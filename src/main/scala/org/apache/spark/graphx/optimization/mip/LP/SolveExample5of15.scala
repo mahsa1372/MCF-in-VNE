@@ -275,7 +275,6 @@ object SolveExample5of15 extends Serializable {
 		val pw = new PrintWriter(new File("Ergebnisse5of15.txt" ))
 		for(i <- 1 until 11) {
 			val numPartitions : Array[Int] = Array(1, 1, 4, 8, 16, 32, 64, 80, 96, 112)
-			//val numPartitions : Array[Int] = Array(4, 4, 4, 4, 32, 32, 32, 32, 64, 64, 64, 64, 96, 96, 96, 96, 128, 128, 128, 128, 256, 256, 256, 256, 512, 512, 512, 512, 1024, 1024, 1024, 1024)
 			val t1 = System.nanoTime
 			val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))
 			val f = lp.SolveMCFinLPResult()

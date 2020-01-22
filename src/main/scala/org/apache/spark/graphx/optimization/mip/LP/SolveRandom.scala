@@ -24,12 +24,11 @@ object SolveRandom extends Serializable {
 	def main(args: Array[String]): Unit = {
 
 		val conf = new SparkConf().setAppName("SolveMCFinLP with Random Nodes")
-//		conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 		val sc = new SparkContext(conf)
 		val t1 = System.nanoTime
 		// --------------------Define the substrate network using nodes and edges------------------------------
 //		val r = scala.util.Random.nextInt(30)
-		val r = 32
+		val r = 15
 		val s = scala.util.Random
 		var svertexArray = Array.ofDim [(Long, (String, Int))] (r)
 		for (i <- 1 to r) {
@@ -58,7 +57,7 @@ object SolveRandom extends Serializable {
 
                 // --------------------Define the virtual network using nodes and edges--------------------------------
 //		val rr = scala.util.Random.nextInt(r)
-		val rr = 7
+		val rr = 3
 		var vvertexArray = Array.ofDim [(Long, (String, Int))] (rr)
 		for (i <- 1 to rr) {
                         vvertexArray(i-1) = (i.toLong, (i.toString, s.nextInt(10)))
@@ -95,17 +94,10 @@ object SolveRandom extends Serializable {
 
 		val Source = (source_1, source_2)
 		val Destination = (destination_1, destination_2)
-
-//		println("source:" + source_1 + source_2)
-//		println("destination:" + destination_1 + destination_2)
-//		gs.vertices.collect.foreach(println(_))
-//		gs.edges.collect.foreach(println(_))
-//		gv.vertices.collect.foreach(println(_))
-//		gv.edges.collect.foreach(println(_))
 		
 		val pw = new PrintWriter(new File("ErgebnisseRandom.txt" ))
                 for(i <- 1 until 3) {
-                        val numPartitions : Array[Int] = Array(80, 80)
+                        val numPartitions : Array[Int] = Array(16, 16)
                         val t1 = System.nanoTime
                         val lp = new SolveMCF3(gs, gv, Source, Destination, sc=sc, numPartitions(i-1))
                         val f = lp.SolveMCFinLPResult()

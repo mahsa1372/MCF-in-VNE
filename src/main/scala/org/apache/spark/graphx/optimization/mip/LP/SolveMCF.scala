@@ -36,16 +36,10 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                 val sv = Source._2					// Source virtual: Xa
 		val ds = Destination._1					// destination substrate: X3
                 val dv = Destination._2					// destination virtual: Xb
-//                val a = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn , mm*nn)// define matrix a with constraints
+
 		val a : DenseMatrix = new DenseMatrix((mm*n)+(4*(m-1))+nn, mm*nn, Array.ofDim[Double](((mm*n)+(4*(m-1))+nn)*(mm*nn)), true)
-//                val b = Array.ofDim[Double]((mm*n)+(4*(m-1))+nn)        // define vector b
 		val b : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+(4*(m-1))+nn))
-//                val c =  Array.ofDim[Double](mm*nn)                     // define vector c
 		val c : Vector = Vectors.dense(Array.ofDim[Double](mm*nn))
-//                val aa = Array.ofDim[Double]((mm*n)+nn , mm*nn)
-//		val aa : DenseMatrix = new DenseMatrix((mm*n)+nn, mm*nn, Array.ofDim[Double](((mm*n)+nn)*(mm*nn)), true)
-//                val bb = Array.ofDim[Double]((mm*n)+nn)
-//		val bb : Vector = Vectors.dense(Array.ofDim[Double]((mm*n)+nn))
                 val look = gs.edges.collect.map{ case Edge(srcId, dstId, (attr1,attr2)) => (srcId, attr1, dstId)}
 
 		val file_Object = new File("abc.xlsx")
@@ -124,44 +118,7 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
                         }
                         else { }
                 }
-/*
-                var numbern = 0
-                for (i <- 0 until mm*n) {
-                        if (bb(i) == 1.0) {
-                                for (j <- 0 until mm*nn) {
-                                        a.values((numbern*mm*nn) + j) = aa(i , j)
-                                        b.toArray(numbern) = bb(i)
-                                }
-                                numbern += 1
-                                for (j <- 0 until mm*nn) {
-                                        a.values((numbern*mm*nn) + j) = aa(i , j)
-                                        b.toArray(numbern) = -bb(i)
-                                }
-                                numbern += 1
-                        }
-                        else if (bb(i) == -1.0) {
-                                for (j <- 0 until mm*nn) {
-                                        if (aa(i, j) == 0) a.values((numbern*mm*nn) + j) = aa(i , j)
-                                        else a.values((numbern*mm*nn) + j) = -aa(i , j)
-                                        b.toArray(numbern) = -bb(i)
-                                }
-                                numbern += 1
-                                for (j <- 0 until mm*nn) {
-                                        if (aa(i, j) == 0) a.values((numbern*mm*nn) + j) = aa(i , j)
-                                        else a.values((numbern*mm*nn) + j) = -aa(i, j)
-                                        b.toArray(numbern) = bb(i)
-                                }
-                                numbern += 1
-                        }
-                        else {
-                                for (j <- 0 until mm*nn) {
-                                        a.values((numbern*mm*nn) + j) = aa(i, j)
-                                        b.toArray(numbern) = bb(i)
-                                }
-                                numbern += 1
-                        }
-                }
-*/
+
                 var numbernn = (n*mm)+(4*(m-1))
                 for (i <- 1 until nn+1) {
                         for (j <- 1 until mm+1) {
@@ -178,52 +135,20 @@ class SolveMCF (gs: Graph[(String, Int), (Int, Int)], gv: Graph[(String, Int), (
 
                         }
                 }
-/*		
-		println("A:")
-                for (i <- 0 until (mm*n)+(4*(m-1))+nn) {
-                        for (j <- 0 until mm*nn) {
-                                print(a(i, j) + "|")
-                        }
-                        println("")
-                }
-		println("B:")
-                for (i <- 0 until (mm*n)+(4*(m-1))+nn) {
-                        print(b(i) + "|")
-                }
-		println("C:")
-                for (i <- 0 until mm*nn) {
-                        print(c(i) + "|")
-                }
-*/
-//		val A = new Matrix(a.length, a(0).length, a)
-//		val B = new Vector(b.length, b)
-//		val C = new Vector(c.length, c)
 
-//		val A = sc.parallelize(a)
-//		val B = sc.parallelize(b)
-//		val C = sc.parallelize(c)
-
-//                print_Writer.write(a)
-//                print_Writer.write(b)
-//                print_Writer.print(c.toArray(0))
 		print_Writer.close()
 
                 // --------------------Solve the problem using simplex algorithm---------------------------------------
 		val lp = new Simplex2(a,b,c, sc=sc)
 		def SolveMCFinLP () :Vector ={
-//			val lp = new Simplex2(a,b,c, sc=sc)
 			val x = lp.solve()
-//			x.Print
 			x
 		}
 		
 		def SolveMCFinLPResult () :Double ={
-//			val lp = new Simplex2(a,b,c, sc=sc)
-//			val x = lp.solve()
 			val f = lp.result(lp.solve())
 			f
 		}
-
 }
 
 
